@@ -47,13 +47,32 @@
 		Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 		Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+		Route::post('/profile/photo', [ProfileController::class, 'updateProfilePhoto'])->name('profile.photo.update');
+		Route::delete('/profile/photo', [ProfileController::class, 'deleteProfilePhoto'])->name('profile.photo.delete'); // Optional: To remove photo
+		Route::patch('/profile/bio', [ProfileController::class, 'updateBio'])->name('profile.bio.update');
+		Route::post('/profile/bio/generate', [ProfileController::class, 'generateBioPlaceholder'])->name('profile.bio.generate');
+
+		Route::post('/profile/books/{book}', [ProfileController::class, 'updateBook'])->name('profile.books.update'); // Use PUT for update
+		Route::post('/profile/books', [ProfileController::class, 'storeBook'])->name('profile.books.store');
+		Route::delete('/profile/books/{book}', [ProfileController::class, 'destroyBook'])->name('profile.books.destroy');
+		Route::post('/profile/books/generate/hook', [ProfileController::class, 'generateBookHookPlaceholder'])->name('profile.books.generate.hook');
+		Route::post('/profile/books/generate/about', [ProfileController::class, 'generateBookAboutPlaceholder'])->name('profile.books.generate.about');
+
 		Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
 		Route::get('/websites/{website}', [WebsiteController::class, 'show'])->name('websites.show');
 		// Route::put('/websites/{website}', [WebsiteController::class, 'update'])->name('websites.update');
 		// Route::delete('/websites/{website}', [WebsiteController::class, 'destroy'])->name('websites.destroy');
 
 		Route::post('/websites/{website}/chat', [ChatMessageController::class, 'store'])->name('websites.chat.store');
-		Route::get('/api/websites/{website}/files', [WebsiteFileController::class, 'index'])->name('api.websites.files.index');
+
+		Route::prefix('/api/websites/{website}/files')
+			->name('api.websites.files.')
+			->controller(WebsiteFileController::class) // Group controller
+			->group(function () {
+				Route::get('/', 'index')->name('index');
+				Route::put('/', 'update')->name('update'); // <-- ADD THIS ROUTE (Using PUT for simplicity)
+				// Add other file-related API routes here if needed (e.g., show specific version, delete)
+			});
 
 	});
 

@@ -8,6 +8,7 @@
 	use App\Models\WebsiteFile;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\DB;
+	use Illuminate\Support\Facades\File;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Auth;
 
@@ -15,45 +16,53 @@
 
 	class ChatMessageController extends Controller
 	{
-		// SYSTEM_PROMPT remains the same...
-		private const SYSTEM_PROMPT = <<<PROMPT
-<role> You are Elooi, an AI editor that creates and modifies web applications. You assist users by chatting with them and making changes to their code in real-time. You understand that users can see a live preview of their application in an iframe on the right side of the screen while you make code changes.
-Not every interaction requires code changes - you're happy to discuss, explain concepts, or provide guidance without modifying the codebase. When code changes are needed, you make efficient and effective updates to PHP/jQuery/Bootstrap 5 codebases while following best practices for maintainability and readability. You take pride in keeping things simple, elegant, and modular using includes. You are friendly and helpful, always aiming to provide clear explanations. </role>
+		private string $systemPrompt;
+
+		public function __construct()
+		{
+			$promptFilePath = public_path('elooi_system_prompt.txt'); // <-- Path to your file in public/
+
+			if (File::exists($promptFilePath)) {
+				$this->systemPrompt = File::get($promptFilePath);
+			} else {
+				// Fallback or error handling if the file doesn't exist
+				$errorMessage = "Error: System prompt file not found at {$promptFilePath}";
+				Log::error($errorMessage);
+				// Provide a default minimal prompt or throw an exception
+				$this->systemPrompt = "<role>Error: System prompt could not be loaded. Please contact support.</role>";
+				// Or potentially: throw new \Exception($errorMessage);
+			}
+		}
 
 
-# Guidelines
+		// Helper function to sanitize and normalize folder paths
+		private function normalizeFolderPath(string $folder): string
+		{
+			$folder = trim(str_replace('..', '', $folder)); // Remove '..'
+			if ($folder === '' || $folder === '/') {
+				return '/'; // Root folder
+			}
+			// Ensure leading slash, remove trailing
+			return '/' . trim($folder, '/');
+		}
 
-Always reply to the user in the same language they are using.
-
-- Use <elooi-chat-summary> for setting the chat summary (put this at the end). The chat summary should be less than a sentence, but more than a few words. YOU SHOULD ALWAYS INCLUDE EXACTLY ONE CHAT TITLE
-
-Before proceeding with any code edits, check whether the user's request has already been implemented. If it has, inform the user without making any changes.
-
-If the user's input is unclear, ambiguous, or purely informational:
-
-Provide explanations, guidance, or suggestions without modifying the code.
-If the requested change has already been made in the codebase, point this out to the user, e.g., "This feature is already implemented as described."
-Respond using regular markdown formatting, including for code snippets within explanations (but NOT for full file edits).
-Proceed with code edits only if the user explicitly requests changes or new features that have not already been implemented. Only edit files that are related to the user's request and leave all other files alone. Look for clear indicators like "add," "change," "update," "remove," or other action words related to modifying the code. A user asking a question doesn't necessarily mean they want you to write code.
-
-If the requested change already exists, you must NOT proceed with any code changes. Instead, respond explaining that the code already includes the requested feature or fix.
-If new code needs to be written (i.e., the requested feature does not exist), you MUST:
-
-- Briefly explain the needed changes in a few short sentences, without being too technical, mentioning the creation of include files.
-- **Structure PHP pages by separating reusable parts:** Create dedicated files for the header (e.g., `includes/header.php`), footer (e.g., `includes/footer.php`), and each logical content `<section>` (e.g., `includes/welcome_section.php`, `includes/contact_form_section.php`). Place these in an `includes/` or `partials/` directory.
-- **Use `include_once`:** Always use `include_once 'path/to/your_include_file.php';` to bring these header, footer, and section files into the main page files (like `index.php`, `about.php`). This prevents errors from multiple inclusions.
-- Use <elooi-write filename="file.ext" folder="/path/to">CODE</elooi-write> for creating or updating files. Create small, focused include files. Use only one <elooi-write> block per file. Do not forget to close the elooi-write tag after writing the file. If you do NOT need to change a file, then do not use the <elooi-write> tag.
-- Use <elooi-rename from="/old/path/old.ext" to="/new/path/new.ext" /> for renaming files.
-- Use <elooi-delete path="/path/to/file.ext" /> for removing files.
-- Use <elooi-add-dependency> is NOT typically used for PHP/Composer in this context. Assume necessary libraries (Bootstrap, jQuery) are included via CDN within the header/footer includes.
-- Look carefully at all PHP `include_once` statements and ensure the files you're referencing exist. Check CDN links in header/footer includes.
-- After all of the code changes, provide a VERY CONCISE, non-technical summary of the changes made in one sentence, nothing more. This summary should be easy for non-technical users to understand.
-
-
-Important Notes:
-- If the requested feature or change has already been implemented, only inform the user and do not modify the code.
-- Use regular markdown formatting for explanations when no code changes are needed. Only use <elooi-write>, <elooi-rename>, and <elooi-delete>.
-PROMPT;
+		// Helper function to validate filenames
+		private function isValidFilename(?string $filename): bool
+		{
+			if ($filename === null || $filename === '' || $filename === '.' || $filename === '..') {
+				return false;
+			}
+			// Check for directory separators
+			if (str_contains($filename, '/') || str_contains($filename, '\\')) {
+				return false;
+			}
+			// Add any other invalid character checks if needed
+			// Example: Check for characters not allowed in filenames on common systems
+			// if (preg_match('/[\x00-\x1F\x7F<>:"\/\\|?*]/', $filename)) {
+			//     return false;
+			// }
+			return true;
+		}
 
 
 		public function store(Request $request, Website $website)
@@ -73,16 +82,16 @@ PROMPT;
 					'content' => $validated['message'],
 				]);
 
-				// 2. Prepare LLM input
-				$latestFiles = WebsiteFile::select('id', 'website_id', 'filename', 'folder', 'filetype', 'version', 'content', 'created_at', 'updated_at', 'is_deleted') // Include is_deleted
-				->where('website_id', $website->id)
+				// 2. Prepare LLM input (fetch active files - no change here)
+				$latestFiles = WebsiteFile::select('id', 'website_id', 'filename', 'folder', 'filetype', 'version', 'content', 'created_at', 'updated_at', 'is_deleted')
+					->where('website_id', $website->id)
 					->whereIn('id', function ($query) use ($website) {
 						$query->select(DB::raw('MAX(id)'))
 							->from('website_files')
 							->where('website_id', $website->id)
 							->groupBy('website_id', 'folder', 'filename');
 					})
-					->where('is_deleted', false) // <-- Only include active files in the context
+					->where('is_deleted', false)
 					->orderBy('folder')
 					->orderBy('filename')
 					->get();
@@ -100,12 +109,13 @@ PROMPT;
 				$chat_messages = [['role' => 'user', 'content' => $llmUserInput]];
 				$llmModel = $website->llm_model ?? env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct');
 
-				// 3. Call LLM
+				// 3. Call LLM (no change here)
 				Log::info("Calling LLM for Website ID: {$website->id} with model: {$llmModel}");
-				$llmResponse = LlmHelper::call_llm($llmModel, self::SYSTEM_PROMPT, $chat_messages);
+				$llmResponse = LlmHelper::call_llm($llmModel, $this->systemPrompt, $chat_messages);
 
-				// 4. Handle LLM Errors
+				// 4. Handle LLM Errors (no change here)
 				if (str_starts_with($llmResponse['content'], 'Error:')) {
+					// ... (error handling as before) ...
 					Log::error("LLM Call Error for Website ID {$website->id}: " . $llmResponse['content']);
 					$assistantMessage = $website->chatMessages()->create([
 						'role' => 'assistant',
@@ -125,49 +135,51 @@ PROMPT;
 				$filesUpdated = false;
 
 				// --- Process Renames ---
-				preg_match_all('/<elooi-rename\s+from="([^"]+)"\s+to="([^"]+)"\s*\/?>/si', $rawLlmOutput, $renameMatches, PREG_SET_ORDER);
+				// Updated Regex to capture new attributes
+				preg_match_all('/<elooi-rename\s+from_folder="([^"]*)"\s+from_filename="([^"]+)"\s+to_folder="([^"]*)"\s+to_filename="([^"]+)"\s*\/?>/si', $rawLlmOutput, $renameMatches, PREG_SET_ORDER);
+
 				foreach ($renameMatches as $match) {
-					$fromPath = trim($match[1]);
-					$toPath = trim($match[2]);
+					$fromFolder = $this->normalizeFolderPath($match[1]);
+					$fromFilename = trim($match[2]);
+					$toFolder = $this->normalizeFolderPath($match[3]);
+					$toFilename = trim($match[4]);
 
-					$fromParts = WebsiteFile::parsePath($fromPath);
-					$toParts = WebsiteFile::parsePath($toPath);
-
-					if (!$fromParts['folder'] || !$fromParts['filename'] || !$toParts['folder'] || !$toParts['filename']) {
-						Log::warning("Website ID {$website->id}: Invalid rename path provided by LLM. From: '{$fromPath}', To: '{$toPath}'");
+					// Validate filenames
+					if (!$this->isValidFilename($fromFilename) || !$this->isValidFilename($toFilename)) {
+						Log::warning("Website ID {$website->id}: Invalid filename provided by LLM for rename. From: '{$fromFolder}/{$fromFilename}', To: '{$toFolder}/{$toFilename}'");
 						continue; // Skip invalid rename
 					}
 
 					// Find the latest active version of the 'from' file
-					$latestFromFile = WebsiteFile::findLatestActive($website->id, $fromParts['folder'], $fromParts['filename']);
+					$latestFromFile = WebsiteFile::findLatestActive($website->id, $fromFolder, $fromFilename);
 
 					if ($latestFromFile) {
-						// Step A: Mark the old file path as deleted by creating a new version
+						// Step A: Mark the old file path as deleted
 						WebsiteFile::create([
 							'website_id' => $website->id,
 							'filename' => $latestFromFile->filename,
 							'folder' => $latestFromFile->folder,
 							'filetype' => $latestFromFile->filetype,
 							'version' => $latestFromFile->version + 1,
-							'content' => $latestFromFile->content, // Copy content
-							'is_deleted' => true, // Mark as deleted
+							'content' => $latestFromFile->content,
+							'is_deleted' => true,
 						]);
 
 						// Step B: Create the new file at the 'to' path (version 1)
 						WebsiteFile::create([
 							'website_id' => $website->id,
-							'filename' => $toParts['filename'],
-							'folder' => $toParts['folder'],
-							'filetype' => pathinfo($toParts['filename'], PATHINFO_EXTENSION),
-							'version' => 1, // Start versioning for the new path
-							'content' => $latestFromFile->content, // Use content from the original file
+							'filename' => $toFilename, // Use new filename
+							'folder' => $toFolder,     // Use new folder
+							'filetype' => pathinfo($toFilename, PATHINFO_EXTENSION),
+							'version' => 1,
+							'content' => $latestFromFile->content,
 							'is_deleted' => false,
 						]);
 
-						Log::info("Website ID {$website->id}: Renamed '{$fromPath}' (v{$latestFromFile->version}) to '{$toPath}' (v1). Marked old path deleted (v" . ($latestFromFile->version + 1) . ").");
+						Log::info("Website ID {$website->id}: Renamed '{$fromFolder}/{$fromFilename}' (v{$latestFromFile->version}) to '{$toFolder}/{$toFilename}' (v1). Marked old path deleted (v" . ($latestFromFile->version + 1) . ").");
 						$filesUpdated = true;
 					} else {
-						Log::warning("Website ID {$website->id}: LLM tried to rename non-existent or already deleted file: '{$fromPath}'");
+						Log::warning("Website ID {$website->id}: LLM tried to rename non-existent or already deleted file: '{$fromFolder}/{$fromFilename}'");
 					}
 				}
 				// Remove rename tags from user response
@@ -175,60 +187,56 @@ PROMPT;
 
 
 				// --- Process Deletes ---
-				preg_match_all('/<elooi-delete\s+path="([^"]+)"\s*\/?>/si', $rawLlmOutput, $deleteMatches, PREG_SET_ORDER);
+				// Updated Regex to capture new attributes
+				preg_match_all('/<elooi-delete\s+folder="([^"]*)"\s+filename="([^"]+)"\s*\/?>/si', $rawLlmOutput, $deleteMatches, PREG_SET_ORDER);
 				foreach ($deleteMatches as $match) {
-					$deletePath = trim($match[1]);
-					$deleteParts = WebsiteFile::parsePath($deletePath);
+					$deleteFolder = $this->normalizeFolderPath($match[1]);
+					$deleteFilename = trim($match[2]);
 
-					if (!$deleteParts['folder'] || !$deleteParts['filename']) {
-						Log::warning("Website ID {$website->id}: Invalid delete path provided by LLM: '{$deletePath}'");
+					// Validate filename
+					if (!$this->isValidFilename($deleteFilename)) {
+						Log::warning("Website ID {$website->id}: Invalid filename provided by LLM for delete: '{$deleteFolder}/{$deleteFilename}'");
 						continue; // Skip invalid delete
 					}
 
 					// Find the latest active version of the file to delete
-					$latestFileToDelete = WebsiteFile::findLatestActive($website->id, $deleteParts['folder'], $deleteParts['filename']);
+					$latestFileToDelete = WebsiteFile::findLatestActive($website->id, $deleteFolder, $deleteFilename);
 
 					if ($latestFileToDelete) {
-						// Mark the file path as deleted by creating a new version
+						// Mark the file path as deleted
 						WebsiteFile::create([
 							'website_id' => $website->id,
 							'filename' => $latestFileToDelete->filename,
 							'folder' => $latestFileToDelete->folder,
 							'filetype' => $latestFileToDelete->filetype,
 							'version' => $latestFileToDelete->version + 1,
-							'content' => $latestFileToDelete->content, // Copy content
-							'is_deleted' => true, // Mark as deleted
+							'content' => $latestFileToDelete->content,
+							'is_deleted' => true,
 						]);
-						Log::info("Website ID {$website->id}: Marked file '{$deletePath}' deleted (created v" . ($latestFileToDelete->version + 1) . ").");
+						Log::info("Website ID {$website->id}: Marked file '{$deleteFolder}/{$deleteFilename}' deleted (created v" . ($latestFileToDelete->version + 1) . ").");
 						$filesUpdated = true;
 					} else {
-						Log::warning("Website ID {$website->id}: LLM tried to delete non-existent or already deleted file: '{$deletePath}'");
+						Log::warning("Website ID {$website->id}: LLM tried to delete non-existent or already deleted file: '{$deleteFolder}/{$deleteFilename}'");
 					}
 				}
 				// Remove delete tags from user response
 				$aiTextResponse = preg_replace('/<elooi-delete[^>]*\/?>/si', '', $aiTextResponse);
 
 
-				// --- Process Writes ---
-				preg_match_all('/<elooi-write filename="([^"]+)" folder="([^"]+)">\s*(.*?)\s*<\/elooi-write>/s', $rawLlmOutput, $writeMatches, PREG_SET_ORDER);
+				// --- Process Writes --- (No change in logic, just ensure folder normalization)
+				preg_match_all('/<elooi-write folder="([^"]*)" filename="([^"]+)" description="([^"]*)">\s*(.*?)\s*<\/elooi-write>/s', $rawLlmOutput, $writeMatches, PREG_SET_ORDER);
 				foreach ($writeMatches as $match) {
-					$filename = trim($match[1]);
-					$folder = trim($match[2]);
-					$content = trim($match[3]); // Trim whitespace around content
+					$folder = $this->normalizeFolderPath($match[1]); // Use helper
+					$filename = trim($match[2]);
+					$description = trim($match[3]);
+					$content = trim($match[4]);
 
-					// Basic path validation/sanitization (reuse from WebsiteFile model or keep here)
-					if (str_contains($filename, '/') || str_contains($filename, '\\') || $filename === '.' || $filename === '..') {
+					if (!$this->isValidFilename($filename)) {
 						Log::warning("Website ID {$website->id}: LLM tried to write invalid filename: {$filename}");
 						continue;
 					}
-					$folder = '/' . trim(str_replace('..', '', $folder), '/');
-					if ($folder === '/') { /* Keep root */
-					} elseif (empty($folder)) {
-						$folder = '/';
-					}
 
-
-					// Find the latest version number (deleted or not, as we are overwriting/creating)
+					// Find latest version (deleted or not)
 					$latestVersion = WebsiteFile::where('website_id', $website->id)
 						->where('folder', $folder)
 						->where('filename', $filename)
@@ -252,24 +260,24 @@ PROMPT;
 				$aiTextResponse = preg_replace('/<elooi-write[^>]*>.*?<\/elooi-write>/s', '', $aiTextResponse);
 
 
-				// --- Extract Chat Summary (Optional) ---
-				$chatSummary = null;
+				// --- Extract Chat Summary (Optional - no change here) ---
+				// ... (summary extraction as before) ...
 				if (preg_match('/<elooi-chat-summary>\s*(.*?)\s*<\/elooi-chat-summary>/s', $aiTextResponse, $summaryMatch)) {
 					$chatSummary = trim($summaryMatch[1]);
 					$aiTextResponse = preg_replace('/<elooi-chat-summary>.*?<\/elooi-chat-summary>/s', '', $aiTextResponse);
 				}
 
-				// --- Final Cleanup and Save Assistant Message ---
+
+				// --- Final Cleanup and Save Assistant Message (no change here) ---
 				$aiTextResponse = trim($aiTextResponse);
+				//remove empty lines
+				$aiTextResponse = preg_replace('/^\s*$/m', '', $aiTextResponse);
 				$assistantMessage = $website->chatMessages()->create([
 					'role' => 'assistant',
 					'content' => $aiTextResponse ?: 'Okay, I have made the requested changes.',
-					// Optionally store tokens used
-					// 'prompt_tokens' => $llmResponse['prompt_tokens'] ?? 0,
-					// 'completion_tokens' => $llmResponse['completion_tokens'] ?? 0,
 				]);
 
-				// --- Commit and Respond ---
+				// --- Commit and Respond (no change here) ---
 				DB::commit();
 
 				return response()->json([
@@ -281,15 +289,16 @@ PROMPT;
 				]);
 
 			} catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+				// ... (exception handling as before) ...
 				DB::rollBack();
 				Log::warning("Authorization failed in ChatMessageController: " . $e->getMessage());
 				return response()->json(['error' => 'Unauthorized.'], 403);
 			} catch (\Exception $e) {
+				// ... (exception handling as before) ...
 				DB::rollBack();
 				Log::error("Error processing chat message for Website ID {$website->id}: " . $e->getMessage() . "\n" . $e->getTraceAsString());
 				$errorMessageForUser = 'Sorry, an unexpected error occurred. Please try again later.';
 				try {
-					// Ensure $userMessage exists before trying to return it
 					$userMsgForResponse = isset($userMessage) ? $userMessage : null;
 					$assistantMessage = $website->chatMessages()->create([
 						'role' => 'assistant',

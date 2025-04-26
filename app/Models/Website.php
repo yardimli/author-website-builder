@@ -6,6 +6,8 @@
 	use Illuminate\Database\Eloquent\Model;
 	use Illuminate\Database\Eloquent\Relations\BelongsTo;
 	use Illuminate\Database\Eloquent\Relations\HasMany;
+	use Illuminate\Database\Eloquent\Relations\HasOne;
+	use Illuminate\Support\Collection;
 
 	class Website extends Model
 	{
@@ -14,6 +16,12 @@
 		protected $fillable = [
 			'user_id',
 			'name',
+			'primary_book_id',
+			'featured_book_ids',
+		];
+
+		protected $casts = [
+			'featured_book_ids' => 'array',
 		];
 
 		public function user(): BelongsTo
@@ -42,4 +50,20 @@
 				->orderBy('version', 'desc'); // Get latest versions first
 			// Further filtering/grouping needed here or in the controller
 		}
+
+		public function primaryBook(): BelongsTo // BelongsTo is appropriate here
+		{
+			return $this->belongsTo(Book::class, 'primary_book_id');
+		}
+
+		public function getFeaturedBooksAttribute(): Collection
+		{
+			$ids = $this->featured_book_ids ?? [];
+			if (empty($ids)) {
+				return collect(); // Return empty collection if no IDs
+			}
+			return Book::whereIn('id', $ids)->get();
+		}
+
+
 	}

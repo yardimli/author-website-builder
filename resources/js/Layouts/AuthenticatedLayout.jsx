@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button"; // Import Button
 import { Moon, Sun } from 'lucide-react'; // Import Icons
 import useTheme from '@/hooks/useTheme'; // Import the custom hook
 
-export default function Authenticated({ user, header, children }) {
+// Removed 'header' from the props destructuring
+export default function Authenticated({ user, children }) {
     const [showingNavigationDropdown, setShowingNavigationDropdown] = useState(false);
     const { theme, setTheme, resolvedTheme } = useTheme();
     
@@ -107,7 +108,6 @@ export default function Authenticated({ user, header, children }) {
                               )}
                           </Button>
                           {/* End Theme Toggle Button (Mobile) */}
-                          
                           <button
                             onClick={() => setShowingNavigationDropdown((previousState) => !previousState)}
                             className="inline-flex items-center justify-center p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:bg-accent focus:text-accent-foreground transition duration-150 ease-in-out" // Use theme variables
@@ -157,11 +157,12 @@ export default function Authenticated({ user, header, children }) {
               </div>
           </nav>
           
-          {header && (
-            <header className="bg-card shadow"> {/* Use theme variable */}
-                <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">{header}</div>
-            </header>
-          )}
+          {/* REMOVED HEADER SECTION */}
+          {/* {header && (
+                <header className="bg-card shadow">
+                    <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">{header}</div>
+                </header>
+            )} */}
           
           <main>{children}</main>
       </div>

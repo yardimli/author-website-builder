@@ -90,7 +90,7 @@
 			session_write_close();
 
 			$llm_base_url = env('OPEN_ROUTER_BASE', 'https://openrouter.ai/api/v1/chat/completions');
-			$llm_api_key = senv('OPEN_ROUTER_KEY');
+			$llm_api_key = env('OPEN_ROUTER_KEY');
 			$llm_model = $llm ?? '';
 			if ($llm_model === '') {
 				$llm_model = env('DEFAULT_LLM');

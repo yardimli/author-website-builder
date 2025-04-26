@@ -6,6 +6,8 @@
 	use App\Models\WebsiteFile;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\DB; // Import DB facade
+	use Illuminate\Support\Facades\Log; // Import Log facade
+	use Illuminate\Support\Facades\Validator; // Import Validator
 
 	class WebsiteFileController extends Controller
 	{
@@ -42,9 +44,97 @@
 			]);
 		}
 
+		/**
+		 * Update the specified file by creating a new version.
+		 */
+		public function update(Request $request, Website $website)
+		{
+			// Authorize: Ensure the user can update this website's files
+			$this->authorize('update', $website); // Assumes 'update' permission in WebsitePolicy
+
+			$validated = $request->validate([
+				'folder' => 'required|string|max:255',
+				'filename' => 'required|string|max:255',
+				'content' => 'present|string|nullable', // Allow empty content, 'present' ensures it's sent
+				// 'base_version_id' => 'required|integer|exists:website_files,id' // Optional: Add if you want to prevent concurrent edits
+			]);
+
+			// --- Normalize folder and filename ---
+			$folder = $this->normalizeFolderPath($validated['folder']);
+			$filename = trim($validated['filename']);
+
+			// Basic filename validation (prevent path traversal etc.)
+			if (str_contains($filename, '/') || str_contains($filename, '\\') || $filename === '.' || $filename === '..') {
+				return response()->json(['error' => 'Invalid filename provided.'], 400);
+			}
+			// --- End Normalization ---
+
+			DB::beginTransaction();
+			try {
+				// Find the *absolute latest* record for this path to get filetype and increment version
+				$latestVersionRecord = WebsiteFile::where('website_id', $website->id)
+					->where('folder', $folder)
+					->where('filename', $filename)
+					->orderByDesc('version')
+					->lockForUpdate() // Prevent race conditions when determining next version
+					->first();
+
+				if (!$latestVersionRecord) {
+					// This shouldn't happen if editing a file from the list, but handle defensively
+					DB::rollBack();
+					return response()->json(['error' => 'Original file path not found.'], 404);
+				}
+
+				// Optional: Concurrency Check - uncomment if you add 'base_version_id' to request
+				// if ($latestVersionRecord->id !== $validated['base_version_id']) {
+				//     DB::rollBack();
+				//     return response()->json(['error' => 'File has been modified since you started editing. Please refresh and try again.'], 409); // 409 Conflict
+				// }
+
+				$newVersionNumber = $latestVersionRecord->version + 1;
+
+				// Create the new version
+				$newFile = WebsiteFile::create([
+					'website_id' => $website->id,
+					'filename' => $filename,
+					'folder' => $folder,
+					'filetype' => $latestVersionRecord->filetype, // Keep original filetype
+					'version' => $newVersionNumber,
+					'content' => $validated['content'] ?? '', // Use empty string if null
+					'is_deleted' => false, // Saving makes it active
+				]);
+
+				DB::commit();
+
+				Log::info("Website ID {$website->id}: Updated file {$folder}/{$filename} to version {$newVersionNumber} (New ID: {$newFile->id})");
+
+				// Return the newly created file record
+				return response()->json($newFile, 201); // 201 Created (as we made a new version resource)
+
+			} catch (\Exception $e) {
+				DB::rollBack();
+				Log::error("Error updating file for Website ID {$website->id} ({$folder}/{$filename}): " . $e->getMessage());
+				return response()->json(['error' => 'Failed to save file changes. Please try again.'], 500);
+			}
+		}
+
+
+		// Helper function to sanitize and normalize folder paths (copied from ChatMessageController - consider moving to a Trait or Helper class)
+		private function normalizeFolderPath(string $folder): string
+		{
+			$folder = trim(str_replace('..', '', $folder)); // Remove '..'
+			if ($folder === '' || $folder === '/') {
+				return '/'; // Root folder
+			}
+			// Ensure leading slash, remove trailing
+			return '/' . trim($folder, '/');
+		}
+
+
 		// Helper function to build a nested tree structure (optional)
 		// Keep or remove based on frontend needs
-		private function buildFileTree($files) {
+		private function buildFileTree($files)
+		{
 			// ... (implementation remains the same, but only receives active files)
 			$tree = [];
 			foreach ($files as $file) {
@@ -67,5 +157,4 @@
 			}
 			return $tree;
 		}
-
 	}
