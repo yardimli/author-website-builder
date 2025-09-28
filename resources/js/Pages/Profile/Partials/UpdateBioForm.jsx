@@ -2,8 +2,8 @@ import InputLabel from '@/Components/InputLabel';
 import InputError from '@/Components/InputError';
 import { useForm } from '@inertiajs/react';
 import { Transition } from '@headlessui/react';
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/Components/ui/button";
+import { Textarea } from "@/Components/ui/textarea";
 import { Wand2, Loader2 } from 'lucide-react'; // Icons
 import { useState } from 'react';
 import axios from 'axios'; // For AI call

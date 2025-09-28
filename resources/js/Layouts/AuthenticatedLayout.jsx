@@ -4,7 +4,7 @@ import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link } from '@inertiajs/react';
-import { Button } from "@/components/ui/button"; // Import Button
+import { Button } from "@/Components/ui/button"; // Import Button
 import { Moon, Sun } from 'lucide-react'; // Import Icons
 import useTheme from '@/hooks/useTheme'; // Import the custom hook
 

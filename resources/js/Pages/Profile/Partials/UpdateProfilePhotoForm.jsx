@@ -5,9 +5,9 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton'; // For remove button
 import { useForm, usePage, router } from '@inertiajs/react'; // Import router for DELETE
 import { Transition } from '@headlessui/react';
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; // Use Shadcn Avatar
-import { Button } from "@/components/ui/button"; // Use Shadcn Button
-import { Input } from "@/components/ui/input"; // Use Shadcn Input
+import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar"; // Use Shadcn Avatar
+import { Button } from "@/Components/ui/button"; // Use Shadcn Button
+import { Input } from "@/Components/ui/input"; // Use Shadcn Input
 import { User, Trash2 } from 'lucide-react'; // Icons
 
 export default function UpdateProfilePhotoForm({ user, status, className = '' }) {

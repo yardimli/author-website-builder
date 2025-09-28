@@ -8,7 +8,7 @@ import UpdateProfilePhotoForm from './Partials/UpdateProfilePhotoForm';
 import UpdateBioForm from './Partials/UpdateBioForm';
 import ManageBooksForm from './Partials/ManageBooksForm';
 import { Head } from '@inertiajs/react'; // Removed usePage as it's not needed for user here
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 
 // Add 'user' to the destructured props here
 export default function Edit({ auth, mustVerifyEmail, status, books, user }) {
