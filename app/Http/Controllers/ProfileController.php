@@ -451,8 +451,7 @@
 					->select(DB::raw('MAX(id) as max_id'))
 					->where('userid', $userId)
 					->where(function ($query) {
-						$query->where('render_result', 'yes')
-							->orWhere('render_status', 11);
+						$query->Where('render_status', 11);
 					})
 					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
 					->pluck('max_id');
