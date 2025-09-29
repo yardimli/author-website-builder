@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+		'bookcoverzone' => [
+			'api_url' => env('BOOKCOVERZONE_API_URL'),
+			'api_secret' => env('BOOKCOVERZONE_API_SECRET'),
+		],
+
 ];

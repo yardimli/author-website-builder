@@ -1,16 +1,25 @@
 <section>
-	<header class="flex justify-between items-center">
+	{{-- MODIFIED: Added a flex container for buttons --}}
+	<header class="flex flex-wrap justify-between items-center gap-4">
 		<div>
 			<h2 class="text-lg font-medium text-base-content">Your Books</h2>
 			<p class="mt-1 text-sm text-base-content/70">
 				Manage the books you want to showcase.
 			</p>
 		</div>
-		{{-- Button to open the modal for adding a new book --}}
-		<button class="btn btn-primary" onclick="add_book_modal.showModal()">
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
-			Add New Book
-		</button>
+		{{-- MODIFIED: Grouped buttons together --}}
+		<div class="flex items-center gap-2">
+			{{-- NEW: Button to link to the new import page --}}
+			<a href="{{ route('profile.import') }}" class="btn btn-outline">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+				Import from BookCoverZone
+			</a>
+			{{-- Button to open the modal for adding a new book --}}
+			<button class="btn btn-primary" onclick="add_book_modal.showModal()">
+				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+				Add New Book
+			</button>
+		</div>
 	</header>
 	
 	{{-- List of existing books --}}

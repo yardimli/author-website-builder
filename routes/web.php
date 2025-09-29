@@ -61,6 +61,12 @@
 		Route::post('/profile/books/generate/hook', [ProfileController::class, 'generateBookHookPlaceholder'])->name('profile.books.generate.hook');
 		Route::post('/profile/books/generate/about', [ProfileController::class, 'generateBookAboutPlaceholder'])->name('profile.books.generate.about');
 
+		// NEW: Book import routes
+		Route::get('/profile/import', [ProfileController::class, 'showImportForm'])->name('profile.import');
+		Route::post('/profile/import/fetch', [ProfileController::class, 'fetchBookcoverzoneBooks'])->name('profile.import.fetch');
+		Route::post('/profile/import/store', [ProfileController::class, 'importBook'])->name('profile.import.store');
+
+
 		// Website management routes
 		Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
 		// MODIFIED: The route to the editor now uses the slug

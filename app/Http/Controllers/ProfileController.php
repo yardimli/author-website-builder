@@ -6,9 +6,11 @@
 	use App\Http\Requests\ProfileUpdateRequest;
 	use App\Models\Book;
 	use Illuminate\Contracts\Auth\MustVerifyEmail;
+	use Illuminate\Http\JsonResponse; // MODIFIED: Import JsonResponse
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
+	use Illuminate\Support\Facades\Http; // MODIFIED: Import Http
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Support\Facades\Storage;
 	use Illuminate\Support\Facades\Validator;
@@ -382,6 +384,135 @@
 
 			// MODIFIED: Redirect back to the books management page.
 			return Redirect::route('profile.books.edit')->with('status', 'book-deleted');
+		}
+
+
+		// --- NEW: BOOK IMPORT ---
+
+		/**
+		 * NEW: Display the book import page.
+		 */
+		public function showImportForm(): View
+		{
+			return view('profile.import');
+		}
+
+		/**
+		 * NEW: Fetch book data from the BookCoverZone API.
+		 */
+		public function fetchBookcoverzoneBooks(Request $request): JsonResponse
+		{
+			$user = $request->user();
+			if (!$user->bookcoverzone_user_id) {
+				return response()->json(['success' => false, 'message' => 'Your account is not linked to a BookCoverZone user ID.'], 400);
+			}
+
+			$apiUrl = config('services.bookcoverzone.api_url');
+			$apiSecret = config('services.bookcoverzone.api_secret');
+
+			if (!$apiUrl || !$apiSecret) {
+				Log::error('BookCoverZone API URL or Secret is not configured.');
+				return response()->json(['success' => false, 'message' => 'The import service is not configured correctly.'], 500);
+			}
+
+			try {
+				$response = Http::withHeaders(['X-Auth-Secret' => $apiSecret])
+					->timeout(30)
+					->post($apiUrl, ['user_id' => $user->bookcoverzone_user_id]);
+
+				if ($response->failed()) {
+					Log::error('BookCoverZone API request failed.', [
+						'status' => $response->status(),
+						'body' => $response->body()
+					]);
+					return response()->json(['success' => false, 'message' => 'Failed to connect to the BookCoverZone service.'], 502);
+				}
+
+				return response()->json($response->json());
+
+			} catch (\Exception $e) {
+				Log::error('Exception while calling BookCoverZone API: ' . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'An error occurred while fetching your books.'], 500);
+			}
+		}
+
+		/**
+		 * NEW: Import a single book from BookCoverZone data.
+		 */
+		public function importBook(Request $request): JsonResponse
+		{
+			$user = $request->user();
+			$validated = $request->validate([
+				'bookData' => 'required|array',
+				'bookData.title' => 'required|string|max:255',
+				'bookData.front_cover_url' => 'required|url',
+				'bookData.author_bio' => 'nullable|string|max:5000',
+				'bookData.author_photo_url' => 'nullable|url',
+				'updateProfile' => 'required|boolean',
+			]);
+
+			$bookData = $validated['bookData'];
+			$updateProfile = $validated['updateProfile'];
+
+			try {
+				// 1. Download front cover image
+				$coverImagePath = null;
+				if (!empty($bookData['front_cover_url'])) {
+					$imageData = Http::get($bookData['front_cover_url'])->body();
+					if ($imageData) {
+						$filename = 'book-covers/' . Str::random(40) . '.jpg';
+						Storage::disk('public')->put($filename, $imageData);
+						$coverImagePath = $filename;
+					}
+				}
+
+				// 2. Create the book record
+				Book::create([
+					'user_id' => $user->id,
+					'title' => $bookData['title'],
+					'cover_image_path' => $coverImagePath,
+					// You can add more fields here if the API provides them
+					// 'subtitle' => $bookData['subtitle'] ?? null,
+				]);
+
+				// 3. Optionally update user profile
+				if ($updateProfile) {
+					$profileUpdated = false;
+					// Update bio if provided
+					if (!empty($bookData['author_bio'])) {
+						$user->bio = $bookData['author_bio'];
+						$profileUpdated = true;
+					}
+
+					// Update profile photo if provided
+					if (!empty($bookData['author_photo_url'])) {
+						$photoData = Http::get($bookData['author_photo_url'])->body();
+						if ($photoData) {
+							// Delete old photo if it exists
+							if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
+								Storage::disk('public')->delete($user->profile_photo_path);
+							}
+							$photoFilename = 'profile-photos/' . Str::random(40) . '.jpg';
+							Storage::disk('public')->put($photoFilename, $photoData);
+							$user->profile_photo_path = $photoFilename;
+							$profileUpdated = true;
+						}
+					}
+
+					if ($profileUpdated) {
+						$user->save();
+					}
+				}
+
+				return response()->json(['success' => true, 'message' => 'Book imported successfully!']);
+
+			} catch (\Exception $e) {
+				Log::error('Error during book import for user ' . $user->id, [
+					'message' => $e->getMessage(),
+					'trace' => $e->getTraceAsString(),
+				]);
+				return response()->json(['success' => false, 'message' => 'An error occurred during the import process.'], 500);
+			}
 		}
 
 
