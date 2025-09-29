@@ -2,6 +2,7 @@
 
 	namespace App\Http\Controllers;
 
+	use App\Helper\CodeSanitizerHelper; // MODIFIED: Import the new sanitizer helper.
 	use App\Helper\LlmHelper;
 	use App\Models\Website;
 	use App\Models\ChatMessage;
@@ -12,7 +13,7 @@
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Auth;
 
-	// Keep if needed elsewhere
+// Keep if needed elsewhere
 
 	class ChatMessageController extends Controller
 	{
@@ -230,11 +231,25 @@
 					$filename = trim($match[2]);
 					$description = trim($match[3]);
 					$content = trim($match[4]);
+					$filetype = pathinfo($filename, PATHINFO_EXTENSION); // MODIFIED: Get filetype for check.
 
 					if (!$this->isValidFilename($filename)) {
 						Log::warning("Website ID {$website->id}: LLM tried to write invalid filename: {$filename}");
 						continue;
 					}
+
+					// --- MODIFIED: START PHP SANITIZATION ---
+					// If the file is a PHP file, run it through the sanitizer before saving.
+					if ($filetype === 'php') {
+						$sanitizationResult = CodeSanitizerHelper::sanitizePhp($content);
+						if (!$sanitizationResult['success']) {
+							// Log the security issue and skip writing this file.
+							Log::warning("Website ID {$website->id}: LLM tried to write forbidden PHP code to {$folder}/{$filename}. Reason: " . $sanitizationResult['message']);
+							// Optionally, inform the user in the chat that a file was rejected for security reasons.
+							continue; // Skip this file write operation.
+						}
+					}
+					// --- MODIFIED: END PHP SANITIZATION ---
 
 					// Find latest version (deleted or not)
 					$latestVersion = WebsiteFile::where('website_id', $website->id)
@@ -248,7 +263,7 @@
 						'website_id' => $website->id,
 						'filename' => $filename,
 						'folder' => $folder,
-						'filetype' => pathinfo($filename, PATHINFO_EXTENSION),
+						'filetype' => $filetype, // MODIFIED: Use determined filetype
 						'version' => $newVersion,
 						'content' => $content,
 						'is_deleted' => false, // Ensure written files are active
@@ -287,7 +302,6 @@
 					'prompt_tokens' => $llmResponse['prompt_tokens'] ?? 0,
 					'completion_tokens' => $llmResponse['completion_tokens'] ?? 0,
 				]);
-
 			} catch (\Illuminate\Auth\Access\AuthorizationException $e) {
 				// ... (exception handling as before) ...
 				DB::rollBack();

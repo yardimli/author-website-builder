@@ -21,21 +21,51 @@
 	{
 		/**
 		 * Display the user's profile form.
-		 * MODIFIED: This method now returns a Blade View instead of an Inertia response.
+		 * MODIFIED: This method now returns a Blade View for just the core profile info.
 		 */
 		public function edit(Request $request): View
 		{
-			// Eager load books relationship
-			$user = $request->user()->load('books');
-
-			// MODIFIED: Render the profile.edit Blade view and pass the necessary data.
+			// MODIFIED: Render the profile.edit Blade view for the main profile page.
+			// Book data is no longer needed here and is handled by editBooks().
 			return view('profile.edit', [
-				'mustVerifyEmail' => $user instanceof MustVerifyEmail,
+				'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
 				'status' => session('status'),
-				'user' => $user, // Pass the user object with books
-				'books' => $user->books, // Pass books separately for easier access
+				'user' => $request->user(),
 			]);
 		}
+
+		/**
+		 * NEW: Display the user's book management page.
+		 */
+		public function editBooks(Request $request): View
+		{
+			$user = $request->user()->load('books');
+			return view('profile.books', [
+				'user' => $user,
+				'books' => $user->books,
+			]);
+		}
+
+		/**
+		 * NEW: Display the user's security settings page.
+		 */
+		public function editSecurity(Request $request): View
+		{
+			return view('profile.security', [
+				'user' => $request->user(),
+			]);
+		}
+
+		/**
+		 * NEW: Display the user's account management page.
+		 */
+		public function editAccount(Request $request): View
+		{
+			return view('profile.account', [
+				'user' => $request->user(),
+			]);
+		}
+
 
 		/**
 		 * Update the user's core profile information (name, email).
@@ -118,20 +148,36 @@
 
 		/**
 		 * Generate AI placeholder for the bio.
-		 * NOTE: No changes needed here, JSON responses work with Blade via AJAX/fetch.
+		 * MODIFIED: This method now uses the user's name and book data for a richer context.
 		 */
 		public function generateBioPlaceholder(Request $request)
 		{
 			$request->validate([
-				'current_bio' => ['nullable', 'string', 'max:1000'], // Limit input to AI
+				'current_bio' => ['nullable', 'string', 'max:3000'], // Limit input to AI
 			]);
 
 			$currentBio = $request->input('current_bio', '');
-			$user = $request->user();
+			$user = $request->user()->load('books'); // Eager load books
 
-			$system_prompt = "You are an assistant helping an author write their website bio. Based on the draft provided (which might be empty or very short), generate a compelling placeholder author bio of about 2-3 short paragraphs. Focus on common author bio elements like genre, themes, maybe a hint of personality or background if inferrable, and a call to action (like 'explore their books'). If the draft is empty, create a generic but engaging author bio.";
+			// --- MODIFIED: Build a detailed context string from user's books ---
+			$bookContext = "Here is a list of my books:\n";
+			if ($user->books->isEmpty()) {
+				$bookContext .= "- I have not added any books yet.\n";
+			} else {
+				foreach ($user->books as $book) {
+					$bookContext .= "- Title: " . $book->title . "\n";
+					if ($book->subtitle) $bookContext .= "  Subtitle: " . $book->subtitle . "\n";
+					if ($book->series_name) $bookContext .= "  Series: " . $book->series_name . " #" . $book->series_number . "\n";
+					if ($book->hook) $bookContext .= "  Hook: " . $book->hook . "\n";
+					if ($book->about) $bookContext .= "  About: " . $book->about . "\n\n";
+				}
+			}
 
-			$user_message = "Here's the current draft of my bio:\n---\n" . $currentBio . "\n---\nPlease generate a placeholder bio based on this.";
+			// --- MODIFIED: Updated prompts for better context ---
+			$system_prompt = "You are an assistant helping an author write their website bio. Your task is to generate a compelling, fictional author bio of about 2-3 short paragraphs. Use the author's name and the list of their books to infer a plausible genre, style, and persona. The bio should sound authentic and engaging. Focus on common author bio elements: hint at their genre, common themes in their work, a touch of personality or a fictional background, and a call to action (e.g., 'explore their books').";
+
+			$user_message = "My name is " . $user->name . ".\n\n" . $bookContext . "\n\nHere's the current draft of my bio (it might be empty):\n---\n" . $currentBio . "\n---\n\nPlease generate a new, creative placeholder bio for me based on my name and book details.";
+
 
 			$chat_messages = [['role' => 'user', 'content' => $user_message]];
 			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting if available
@@ -213,7 +259,6 @@
 
 		/**
 		 * Store a newly created book in storage.
-		 * NOTE: No changes needed here.
 		 */
 		public function storeBook(Request $request): RedirectResponse
 		{
@@ -253,12 +298,12 @@
 
 			Book::create($bookData);
 
-			return Redirect::route('profile.edit')->with('status', 'book-created');
+			// MODIFIED: Redirect back to the books management page.
+			return Redirect::route('profile.books.edit')->with('status', 'book-created');
 		}
 
 		/**
 		 * Update the specified book in storage.
-		 * NOTE: No changes needed here.
 		 */
 		public function updateBook(Request $request, Book $book): RedirectResponse
 		{
@@ -314,12 +359,12 @@
 
 			$book->update($bookData);
 
-			return Redirect::route('profile.edit')->with('status', 'book-updated');
+			// MODIFIED: Redirect back to the books management page.
+			return Redirect::route('profile.books.edit')->with('status', 'book-updated');
 		}
 
 		/**
 		 * Remove the specified book from storage.
-		 * NOTE: No changes needed here.
 		 */
 		public function destroyBook(Request $request, Book $book): RedirectResponse
 		{
@@ -335,7 +380,8 @@
 
 			$book->delete();
 
-			return Redirect::route('profile.edit')->with('status', 'book-deleted');
+			// MODIFIED: Redirect back to the books management page.
+			return Redirect::route('profile.books.edit')->with('status', 'book-deleted');
 		}
 
 

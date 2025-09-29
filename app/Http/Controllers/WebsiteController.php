@@ -11,6 +11,7 @@
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Validation\Rule;
 	use Illuminate\View\View;
+	use Illuminate\Support\Str; // NEW: Import the Str helper
 
 	class WebsiteController extends Controller
 	{
@@ -28,6 +29,15 @@
 			$hasBooks = $user->books->count() > 0;
 			$prerequisitesMet = $profileComplete && $hasBooks;
 
+			// NEW: Generate a suggested, unique slug for the "create website" form.
+			$suggestedSlug = Str::slug($user->name . '-new-site');
+			$counter = 1;
+			$originalSlug = $suggestedSlug;
+			while (Website::where('slug', $suggestedSlug)->exists()) {
+				$suggestedSlug = $originalSlug . '-' . $counter;
+				$counter++;
+			}
+
 			// MODIFIED: Render the 'dashboard' Blade view and pass the necessary data.
 			return view('dashboard', [
 				'websites' => $websites,
@@ -36,6 +46,7 @@
 				'prerequisitesMet' => $prerequisitesMet,
 				'profileComplete' => $profileComplete,
 				'hasBooks' => $hasBooks,
+				'suggestedSlug' => $suggestedSlug, // NEW: Pass suggested slug to the view
 				'auth' => [
 					'user' => $user
 				]
@@ -59,8 +70,10 @@
 			}
 
 			// --- Validation ---
+			// MODIFIED: Added validation rules for the new 'slug' field.
 			$validated = $request->validate([
 				'name' => 'required|string|max:255',
+				'slug' => 'required|string|max:255|alpha_dash|unique:websites,slug',
 				'primary_book_id' => [
 					'required',
 					'integer',
@@ -86,8 +99,10 @@
 			}
 
 			// --- Create Website Record ---
+			// MODIFIED: Added the slug to the create() method data.
 			$website = $user->websites()->create([
 				'name' => $validated['name'],
+				'slug' => $validated['slug'],
 				'primary_book_id' => $validated['primary_book_id'],
 				'featured_book_ids' => $validated['featured_book_ids'] ?? [],
 				'llm_model' => env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'),
@@ -119,7 +134,7 @@
 
 			// --- Create Static Header/Footer and Minimal Index Files ---
 			try {
-				// Content for header.php (Keep relatively static)
+				// MODIFIED: Added integrity hashes to the CDN links for security.
 				$headerContent = <<<PHP
 <!doctype html>
 <html lang="en">
@@ -127,15 +142,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{$website->name} - {$user->name}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"  crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
 <div class="container">
 PHP;
 
-				// Content for footer.php (Keep relatively static)
+				// MODIFIED: Added integrity hash to the Bootstrap JS CDN link.
 				$footerContent = <<<PHP
 </div> <!-- /container -->
 
@@ -143,7 +158,7 @@ PHP;
     <p>© <?php echo date('Y'); ?> {$user->name}. Website by AuthorWebsiteBuilder.</p>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 <script src="js/script.js"></script>
 </body>
 </html>
@@ -403,6 +418,7 @@ blockquote {
 			Log::info("Flashing initial_prompt to session for Website ID: {$website->id}");
 
 			// --- Redirect with Initial Prompt ---
+			// MODIFIED: The route helper now uses the website object, which correctly resolves to the new slug.
 			return redirect()->route('websites.show', $website)
 				->with('success', 'Website created! Generating initial content via chat...')
 				->with('initial_prompt', $initialUserPrompt);
@@ -425,5 +441,50 @@ blockquote {
 				'website' => $website,
 				'chatMessages' => $website->chatMessages,
 			]);
+		}
+
+		/**
+		 * NEW: Check if a given slug is available.
+		 * This is used for real-time validation on the frontend.
+		 */
+		public function checkSlug(Request $request)
+		{
+			$validated = $request->validate([
+				'slug' => 'required|string|alpha_dash|max:255',
+				'ignore_id' => 'nullable|integer|exists:websites,id'
+			]);
+
+			$query = Website::where('slug', $validated['slug']);
+
+			if (isset($validated['ignore_id'])) {
+				$query->where('id', '!=', $validated['ignore_id']);
+			}
+
+			$isAvailable = !$query->exists();
+
+			return response()->json(['available' => $isAvailable]);
+		}
+
+		/**
+		 * NEW: Update the slug for a given website.
+		 */
+		public function updateSlug(Request $request, Website $website)
+		{
+			$this->authorize('update', $website);
+
+			$validated = $request->validate([
+				'slug' => [
+					'required',
+					'string',
+					'alpha_dash',
+					'max:255',
+					Rule::unique('websites')->ignore($website->id),
+				]
+			]);
+
+			$website->slug = $validated['slug'];
+			$website->save();
+
+			return Redirect::route('dashboard')->with('status', 'website-slug-updated');
 		}
 	}

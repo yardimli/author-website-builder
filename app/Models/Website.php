@@ -16,6 +16,7 @@
 		protected $fillable = [
 			'user_id',
 			'name',
+			'slug', // MODIFIED: Add slug
 			'primary_book_id',
 			'featured_book_ids',
 		];
@@ -23,6 +24,12 @@
 		protected $casts = [
 			'featured_book_ids' => 'array',
 		];
+
+		// NEW: Add this method to use the 'slug' column for route model binding.
+		public function getRouteKeyName()
+		{
+			return 'slug';
+		}
 
 		public function user(): BelongsTo
 		{

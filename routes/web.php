@@ -1,4 +1,4 @@
-<?php
+w<?php
 
 	use App\Http\Controllers\ChatMessageController;
 	use App\Http\Controllers\PageController;
@@ -23,8 +23,8 @@
 	Route::get('/', [PageController::class, 'home'])->name('home');
 	Route::get('/home', [PageController::class, 'home'])->name('home');
 
-// The website preview route remains the same
-	Route::get('/website/{website}/{path?}', [WebsitePreviewController::class, 'serve'])
+// MODIFIED: The website preview route now uses the slug for lookup
+	Route::get('/website/{website:slug}/{path?}', [WebsitePreviewController::class, 'serve'])
 		->where('path', '.*')
 		->name('website.preview.serve');
 
@@ -38,6 +38,11 @@
 		Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 		Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+		// NEW: Routes for the separated profile pages
+		Route::get('/profile/books', [ProfileController::class, 'editBooks'])->name('profile.books.edit');
+		Route::get('/profile/security', [ProfileController::class, 'editSecurity'])->name('profile.security.edit');
+		Route::get('/profile/account', [ProfileController::class, 'editAccount'])->name('profile.account.edit');
+
 		// Specific profile actions
 		Route::post('/profile/photo', [ProfileController::class, 'updateProfilePhoto'])->name('profile.photo.update');
 		Route::delete('/profile/photo', [ProfileController::class, 'deleteProfilePhoto'])->name('profile.photo.delete');
@@ -45,7 +50,7 @@
 		Route::post('/profile/bio/generate', [ProfileController::class, 'generateBioPlaceholder'])->name('profile.bio.generate');
 
 		// Book management routes
-		// Note: Using POST for update to simplify Blade forms without needing a @method directive
+		// MODIFIED: Using POST for update to simplify Blade forms without needing a @method directive
 		Route::post('/profile/books/{book}', [ProfileController::class, 'updateBook'])->name('profile.books.update');
 		Route::post('/profile/books', [ProfileController::class, 'storeBook'])->name('profile.books.store');
 		Route::delete('/profile/books/{book}', [ProfileController::class, 'destroyBook'])->name('profile.books.destroy');
@@ -54,13 +59,19 @@
 
 		// Website management routes
 		Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
-		Route::get('/websites/{website}', [WebsiteController::class, 'show'])->name('websites.show');
+		// MODIFIED: The route to the editor now uses the slug
+		Route::get('/websites/{website:slug}', [WebsiteController::class, 'show'])->name('websites.show');
+		// NEW: Route for updating a website's slug
+		Route::patch('/websites/{website:slug}/slug', [WebsiteController::class, 'updateSlug'])->name('websites.slug.update');
+		// NEW: Route for checking slug availability via AJAX
+		Route::post('/websites/slug/check', [WebsiteController::class, 'checkSlug'])->name('websites.slug.check');
 
-		// Chat route
-		Route::post('/websites/{website}/chat', [ChatMessageController::class, 'store'])->name('websites.chat.store');
 
-		// API routes for file management (can be called via fetch from Blade)
-		Route::prefix('/api/websites/{website}/files')
+		// MODIFIED: Chat route now uses the slug
+		Route::post('/websites/{website:slug}/chat', [ChatMessageController::class, 'store'])->name('websites.chat.store');
+
+		// MODIFIED: API routes for file management now use the slug
+		Route::prefix('/api/websites/{website:slug}/files')
 			->name('api.websites.files.')
 			->controller(WebsiteFileController::class)
 			->group(function () {

@@ -2,6 +2,7 @@
 
 	namespace App\Http\Controllers;
 
+	use App\Helper\CodeSanitizerHelper; // MODIFIED: Import the new sanitizer helper.
 	use App\Models\Website;
 	use App\Models\WebsiteFile;
 	use Illuminate\Http\Request;
@@ -91,6 +92,21 @@
 				//     return response()->json(['error' => 'File has been modified since you started editing. Please refresh and try again.'], 409); // 409 Conflict
 				// }
 
+				$contentToSave = $validated['content'] ?? ''; // MODIFIED: Store content in a variable
+
+				// --- MODIFIED: START PHP SANITIZATION ---
+				// If the file being edited is a PHP file, sanitize its content before saving.
+				if ($latestVersionRecord->filetype === 'php') {
+					$sanitizationResult = CodeSanitizerHelper::sanitizePhp($contentToSave);
+					if (!$sanitizationResult['success']) {
+						DB::rollBack();
+						Log::warning("User tried to save forbidden PHP code to {$folder}/{$filename} for Website ID {$website->id}. Reason: " . $sanitizationResult['message']);
+						// Return a specific, user-friendly error message.
+						return response()->json(['error' => $sanitizationResult['message']], 422); // 422 Unprocessable Entity
+					}
+				}
+				// --- MODIFIED: END PHP SANITIZATION ---
+
 				$newVersionNumber = $latestVersionRecord->version + 1;
 
 				// Create the new version
@@ -100,7 +116,7 @@
 					'folder' => $folder,
 					'filetype' => $latestVersionRecord->filetype, // Keep original filetype
 					'version' => $newVersionNumber,
-					'content' => $validated['content'] ?? '', // Use empty string if null
+					'content' => $contentToSave, // MODIFIED: Use the sanitized content variable
 					'is_deleted' => false, // Saving makes it active
 				]);
 
@@ -110,7 +126,6 @@
 
 				// Return the newly created file record
 				return response()->json($newFile, 201); // 201 Created (as we made a new version resource)
-
 			} catch (\Exception $e) {
 				DB::rollBack();
 				Log::error("Error updating file for Website ID {$website->id} ({$folder}/{$filename}): " . $e->getMessage());
