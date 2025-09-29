@@ -10,9 +10,7 @@
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
-	use Illuminate\Support\Facades\DB;
-
-	// MODIFIED: Import DB facade
+	use Illuminate\Support\Facades\DB; // MODIFIED: Import DB facade
 	use Illuminate\Support\Facades\Http;
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Support\Facades\Storage;
@@ -400,44 +398,6 @@
 			return view('profile.import');
 		}
 
-
-		//currently not in use will be used in the future when build and web are on different servers
-		public function fetchBookcoverzoneBooksFromUrl(Request $request): JsonResponse
-		{
-			$user = $request->user();
-			if (!$user->bookcoverzone_user_id) {
-				return response()->json(['success' => false, 'message' => 'Your account is not linked to a BookCoverZone user ID.'], 400);
-			}
-
-			$apiUrl = config('services.bookcoverzone.api_url');
-			$apiSecret = config('services.bookcoverzone.api_secret');
-
-			if (!$apiUrl || !$apiSecret) {
-				Log::error('BookCoverZone API URL or Secret is not configured.');
-				return response()->json(['success' => false, 'message' => 'The import service is not configured correctly.'], 500);
-			}
-
-			try {
-				$response = Http::withHeaders(['X-Auth-Secret' => $apiSecret])
-					->timeout(30)
-					->post($apiUrl, ['user_id' => $user->bookcoverzone_user_id]);
-
-				if ($response->failed()) {
-					Log::error('BookCoverZone API request failed.', [
-						'status' => $response->status(),
-						'body' => $response->body()
-					]);
-					return response()->json(['success' => false, 'message' => 'Failed to connect to the BookCoverZone service.'], 502);
-				}
-
-				return response()->json($response->json());
-
-			} catch (\Exception $e) {
-				Log::error('Exception while calling BookCoverZone API: ' . $e->getMessage());
-				return response()->json(['success' => false, 'message' => 'An error occurred while fetching your books.'], 500);
-			}
-		}
-
 		/**
 		 * NEW: Fetch book data from the BookCoverZone API.
 		 */
@@ -453,16 +413,8 @@
 			$userLayersUrl = env('BOOKCOVERZONE_USER_LAYERS_URL', 'https://user-layers.bookcoverzone.com');
 
 			try {
-				// Subquery to find all purchased cover filenames for the user
-				$purchasedCoversSubquery = "
-            SELECT DISTINCT sc.photoshop_filename 
-            FROM shoppingcarts sc 
-            JOIN orders o ON sc.order_id = o.id 
-            JOIN products p ON sc.product_id = p.id 
-            WHERE sc.user_id = ? AND o.status = 'success' AND p.type = 'bookcover'
-        ";
-
-				// Main query to get the latest front and back cover renders
+				// MODIFIED: The entire SQL query has been updated to use explicit table aliases
+				// in the innermost subqueries to prevent "Unknown column" errors.
 				$sql = "
             SELECT 
                 front.id AS front_history_id,
@@ -477,11 +429,11 @@
                     FROM bkz_front_drag_history h1
                     INNER JOIN (
                         SELECT 
-                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile')) as coverfile, 
-                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name')) as trim_size_name,
-                            MAX(id) as max_id
-                        FROM bkz_front_drag_history
-                        WHERE userid = ? AND (render_result = 'yes' OR render_status = 11)
+                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_front.fields, '$.coverfile')) as coverfile, 
+                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_front.fields, '$.trim_size_name')) as trim_size_name,
+                            MAX(h_inner_front.id) as max_id
+                        FROM bkz_front_drag_history AS h_inner_front
+                        WHERE h_inner_front.userid = ? AND (h_inner_front.render_result = 'yes' OR h_inner_front.render_status = 11)
                         GROUP BY coverfile, trim_size_name
                     ) h2 ON JSON_UNQUOTE(JSON_EXTRACT(h1.fields, '$.coverfile')) = h2.coverfile 
                            AND JSON_UNQUOTE(JSON_EXTRACT(h1.fields, '$.trim_size_name')) = h2.trim_size_name
@@ -493,11 +445,11 @@
                     FROM bkz_back_drag_history h3
                     INNER JOIN (
                         SELECT 
-                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile')) as coverfile, 
-                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name')) as trim_size_name,
-                            MAX(id) as max_id
-                        FROM bkz_back_drag_history
-                        WHERE userid = ? AND (render_result = 'yes' OR render_status = 11)
+                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_back.fields, '$.coverfile')) as coverfile, 
+                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_back.fields, '$.trim_size_name')) as trim_size_name,
+                            MAX(h_inner_back.id) as max_id
+                        FROM bkz_back_drag_history AS h_inner_back
+                        WHERE h_inner_back.userid = ? AND (h_inner_back.render_result = 'yes' OR h_inner_back.render_status = 11)
                         GROUP BY coverfile, trim_size_name
                     ) h4 ON JSON_UNQUOTE(JSON_EXTRACT(h3.fields, '$.coverfile')) = h4.coverfile 
                            AND JSON_UNQUOTE(JSON_EXTRACT(h3.fields, '$.trim_size_name')) = h4.trim_size_name
@@ -662,7 +614,7 @@
 			if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
 				Storage::disk('public')->delete($user->profile_photo_path);
 			}
-			foreach ($user->books as $book) {
+			foreach($user->books as $book) {
 				if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
 					Storage::disk('public')->delete($book->cover_image_path);
 				}
