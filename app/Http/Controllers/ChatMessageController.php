@@ -94,7 +94,7 @@
 
 				$llmUserInput = $fileContext . "\n\n---\n\nUser Request:\n" . $validated['message'];
 				$chat_messages = [['role' => 'user', 'content' => $llmUserInput]];
-				$llmModel = $website->llm_model ?? env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct');
+				$llmModel = $website->llm_model ?? env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025');
 
 				// 3. Call LLM
 				Log::info("Calling LLM for Website ID: {$website->id} with model: {$llmModel}");

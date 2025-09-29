@@ -183,7 +183,7 @@
 
 
 			$chat_messages = [['role' => 'user', 'content' => $user_message]];
-			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting if available
+			$llmModel = env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025'); // Or use a user-specific setting if available
 
 			Log::info("Requesting AI bio generation for user {$user->id}");
 			$llmResponse = LlmHelper::call_llm($llmModel, $system_prompt, $chat_messages);
@@ -242,7 +242,7 @@
 		private function callBookAiGenerator($user, $system_prompt, $user_message, $fieldType)
 		{
 			$chat_messages = [['role' => 'user', 'content' => $user_message]];
-			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting
+			$llmModel = env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025'); // Or use a user-specific setting
 
 			Log::info("Requesting AI book {$fieldType} generation for user {$user->id}");
 			$llmResponse = LlmHelper::call_llm($llmModel, $system_prompt, $chat_messages);
