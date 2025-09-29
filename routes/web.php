@@ -6,9 +6,7 @@
 	use App\Http\Controllers\WebsiteController;
 	use App\Http\Controllers\WebsiteFileController;
 	use App\Http\Controllers\WebsitePreviewController;
-	use Illuminate\Foundation\Application;
 	use Illuminate\Support\Facades\Route;
-	use Inertia\Inertia;
 
 	/*
 	|--------------------------------------------------------------------------
@@ -21,59 +19,55 @@
 	|
 	*/
 
+// The home route remains the same
 	Route::get('/', [PageController::class, 'home'])->name('home');
+	Route::get('/home', [PageController::class, 'home'])->name('home');
 
-	Route::get('/website/{website}/{path?}', [WebsitePreviewController::class, 'serve']) // Use 'serve' method
-	->where('path', '.*')
+// The website preview route remains the same
+	Route::get('/website/{website}/{path?}', [WebsitePreviewController::class, 'serve'])
+		->where('path', '.*')
 		->name('website.preview.serve');
 
-//	Route::get('/', function () {
-//		return Inertia::render('Welcome', [
-//			'canLogin' => Route::has('login'),
-//			'canRegister' => Route::has('register'),
-//			'laravelVersion' => Application::VERSION,
-//			'phpVersion' => PHP_VERSION,
-//		]);
-//	});
-//
-//	Route::get('/dashboard', function () {
-//		return Inertia::render('Dashboard');
-//	})->middleware(['auth', 'verified'])->name('dashboard');
 
 	Route::middleware('auth')->group(function () {
+		// Route to the dashboard
 		Route::get('/dashboard', [WebsiteController::class, 'index'])->name('dashboard');
 
+		// Profile routes are now standard GET/PATCH/DELETE
 		Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
 		Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 		Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+		// Specific profile actions
 		Route::post('/profile/photo', [ProfileController::class, 'updateProfilePhoto'])->name('profile.photo.update');
-		Route::delete('/profile/photo', [ProfileController::class, 'deleteProfilePhoto'])->name('profile.photo.delete'); // Optional: To remove photo
+		Route::delete('/profile/photo', [ProfileController::class, 'deleteProfilePhoto'])->name('profile.photo.delete');
 		Route::patch('/profile/bio', [ProfileController::class, 'updateBio'])->name('profile.bio.update');
 		Route::post('/profile/bio/generate', [ProfileController::class, 'generateBioPlaceholder'])->name('profile.bio.generate');
 
-		Route::post('/profile/books/{book}', [ProfileController::class, 'updateBook'])->name('profile.books.update'); // Use PUT for update
+		// Book management routes
+		// Note: Using POST for update to simplify Blade forms without needing a @method directive
+		Route::post('/profile/books/{book}', [ProfileController::class, 'updateBook'])->name('profile.books.update');
 		Route::post('/profile/books', [ProfileController::class, 'storeBook'])->name('profile.books.store');
 		Route::delete('/profile/books/{book}', [ProfileController::class, 'destroyBook'])->name('profile.books.destroy');
 		Route::post('/profile/books/generate/hook', [ProfileController::class, 'generateBookHookPlaceholder'])->name('profile.books.generate.hook');
 		Route::post('/profile/books/generate/about', [ProfileController::class, 'generateBookAboutPlaceholder'])->name('profile.books.generate.about');
 
+		// Website management routes
 		Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
 		Route::get('/websites/{website}', [WebsiteController::class, 'show'])->name('websites.show');
-		// Route::put('/websites/{website}', [WebsiteController::class, 'update'])->name('websites.update');
-		// Route::delete('/websites/{website}', [WebsiteController::class, 'destroy'])->name('websites.destroy');
 
+		// Chat route
 		Route::post('/websites/{website}/chat', [ChatMessageController::class, 'store'])->name('websites.chat.store');
 
+		// API routes for file management (can be called via fetch from Blade)
 		Route::prefix('/api/websites/{website}/files')
 			->name('api.websites.files.')
-			->controller(WebsiteFileController::class) // Group controller
+			->controller(WebsiteFileController::class)
 			->group(function () {
 				Route::get('/', 'index')->name('index');
-				Route::put('/', 'update')->name('update'); // <-- ADD THIS ROUTE (Using PUT for simplicity)
-				// Add other file-related API routes here if needed (e.g., show specific version, delete)
+				Route::put('/', 'update')->name('update');
 			});
-
 	});
 
-	require __DIR__ . '/auth.php';
+
+	Auth::routes();

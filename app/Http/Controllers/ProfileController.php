@@ -2,34 +2,34 @@
 
 	namespace App\Http\Controllers;
 
-	use App\Helper\LlmHelper; // <-- Add LlmHelper
+	use App\Helper\LlmHelper;
 	use App\Http\Requests\ProfileUpdateRequest;
-	use App\Models\Book; // <-- Add Book model
+	use App\Models\Book;
 	use Illuminate\Contracts\Auth\MustVerifyEmail;
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
 	use Illuminate\Support\Facades\Redirect;
-	use Illuminate\Support\Facades\Storage; // <-- Add Storage
-	use Illuminate\Support\Facades\Validator; // <-- Add Validator
-	use Illuminate\Validation\Rule; // <-- Add Rule
-	use Inertia\Inertia;
-	use Inertia\Response;
-	use Illuminate\Support\Str; // <-- Add Str
-	use Illuminate\Support\Facades\Log; // <-- Add Log
-
+	use Illuminate\Support\Facades\Storage;
+	use Illuminate\Support\Facades\Validator;
+	use Illuminate\Validation\Rule;
+	use Illuminate\Support\Str;
+	use Illuminate\Support\Facades\Log;
+	use Illuminate\View\View;
 
 	class ProfileController extends Controller
 	{
 		/**
 		 * Display the user's profile form.
+		 * MODIFIED: This method now returns a Blade View instead of an Inertia response.
 		 */
-		public function edit(Request $request): Response
+		public function edit(Request $request): View
 		{
 			// Eager load books relationship
 			$user = $request->user()->load('books');
 
-			return Inertia::render('Profile/Edit', [
+			// MODIFIED: Render the profile.edit Blade view and pass the necessary data.
+			return view('profile.edit', [
 				'mustVerifyEmail' => $user instanceof MustVerifyEmail,
 				'status' => session('status'),
 				'user' => $user, // Pass the user object with books
@@ -39,6 +39,7 @@
 
 		/**
 		 * Update the user's core profile information (name, email).
+		 * NOTE: No changes needed here, RedirectResponse is compatible with Blade.
 		 */
 		public function update(ProfileUpdateRequest $request): RedirectResponse
 		{
@@ -55,6 +56,7 @@
 
 		/**
 		 * Update the user's profile photo.
+		 * NOTE: No changes needed here.
 		 */
 		public function updateProfilePhoto(Request $request): RedirectResponse
 		{
@@ -82,6 +84,7 @@
 
 		/**
 		 * Delete the user's profile photo.
+		 * NOTE: No changes needed here.
 		 */
 		public function deleteProfilePhoto(Request $request): RedirectResponse
 		{
@@ -98,6 +101,7 @@
 
 		/**
 		 * Update the user's bio.
+		 * NOTE: No changes needed here.
 		 */
 		public function updateBio(Request $request): RedirectResponse
 		{
@@ -114,8 +118,9 @@
 
 		/**
 		 * Generate AI placeholder for the bio.
+		 * NOTE: No changes needed here, JSON responses work with Blade via AJAX/fetch.
 		 */
-		public function generateBioPlaceholder(Request $request) // No RedirectResponse needed
+		public function generateBioPlaceholder(Request $request)
 		{
 			$request->validate([
 				'current_bio' => ['nullable', 'string', 'max:1000'], // Limit input to AI
@@ -143,6 +148,9 @@
 			return response()->json(['generated_bio' => trim($llmResponse['content'])]);
 		}
 
+		/**
+		 * NOTE: No changes needed for AI helper methods.
+		 */
 		public function generateBookHookPlaceholder(Request $request)
 		{
 			$validated = $request->validate([
@@ -205,6 +213,7 @@
 
 		/**
 		 * Store a newly created book in storage.
+		 * NOTE: No changes needed here.
 		 */
 		public function storeBook(Request $request): RedirectResponse
 		{
@@ -249,6 +258,7 @@
 
 		/**
 		 * Update the specified book in storage.
+		 * NOTE: No changes needed here.
 		 */
 		public function updateBook(Request $request, Book $book): RedirectResponse
 		{
@@ -309,6 +319,7 @@
 
 		/**
 		 * Remove the specified book from storage.
+		 * NOTE: No changes needed here.
 		 */
 		public function destroyBook(Request $request, Book $book): RedirectResponse
 		{
@@ -330,6 +341,7 @@
 
 		/**
 		 * Delete the user's account.
+		 * NOTE: No changes needed here.
 		 */
 		public function destroy(Request $request): RedirectResponse
 		{

@@ -7,21 +7,20 @@
 	use App\Models\Book;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
-	use Illuminate\Support\Facades\File;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Validation\Rule;
-	use Inertia\Inertia;
-	use Inertia\Response;
+	use Illuminate\View\View;
 
 	class WebsiteController extends Controller
 	{
 		/**
 		 * Display a listing of the user's websites (Dashboard).
+		 * MODIFIED: This method now returns a Blade View instead of an Inertia response.
 		 */
-		public function index(): Response
+		public function index(): View
 		{
-			$user = Auth::user()->load('websites', 'books'); // Eager load books
+			$user = Auth::user()->load('websites', 'books');
 			$websites = $user->websites()->orderBy('created_at', 'desc')->get();
 
 			// Check profile completeness
@@ -29,31 +28,28 @@
 			$hasBooks = $user->books->count() > 0;
 			$prerequisitesMet = $profileComplete && $hasBooks;
 
-			return Inertia::render('Dashboard', [
+			// MODIFIED: Render the 'dashboard' Blade view and pass the necessary data.
+			return view('dashboard', [
 				'websites' => $websites,
 				'hasWebsites' => $websites->isNotEmpty(),
-				'userBooks' => $user->books, // Pass user's books to the dashboard
-				'prerequisitesMet' => $prerequisitesMet, // Pass the check result
-				'profileComplete' => $profileComplete, // Pass individual checks for specific messages
-				'hasBooks' => $hasBooks, // Pass individual checks for specific messages
-				'auth' => [ // Pass necessary user info for display/checks in frontend
-					'user' => [
-						'id' => $user->id,
-						'name' => $user->name,
-						'email' => $user->email,
-						'bio' => $user->bio, // Needed for check
-						'profile_photo_url' => $user->profile_photo_url, // Needed for check
-					]
+				'userBooks' => $user->books,
+				'prerequisitesMet' => $prerequisitesMet,
+				'profileComplete' => $profileComplete,
+				'hasBooks' => $hasBooks,
+				'auth' => [
+					'user' => $user
 				]
 			]);
 		}
 
 		/**
 		 * Store a newly created website in storage.
+		 * NOTE: No changes were needed here as the logic is backend-focused and
+		 * the redirect is compatible with Blade.
 		 */
 		public function store(Request $request)
 		{
-			$user = Auth::user()->load('books'); // Load books for checks and data
+			$user = Auth::user()->load('books');
 
 			// --- Prerequisite Check (Server-side) ---
 			$profileComplete = !empty($user->name) && !empty($user->bio) && !empty($user->profile_photo_path);
@@ -73,12 +69,11 @@
 					}),
 				],
 				'featured_book_ids' => 'nullable|array',
-				'featured_book_ids.*' => [ // Validate each ID in the array
+				'featured_book_ids.*' => [
 					'integer',
 					Rule::exists('books', 'id')->where(function ($query) use ($user) {
 						$query->where('user_id', $user->id);
 					}),
-					// Ensure featured books are not the same as the primary book
 					Rule::notIn([$request->input('primary_book_id')]),
 				],
 			]);
@@ -94,21 +89,20 @@
 			$website = $user->websites()->create([
 				'name' => $validated['name'],
 				'primary_book_id' => $validated['primary_book_id'],
-				'featured_book_ids' => $validated['featured_book_ids'] ?? [], // Store as array
-				'llm_model' => env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'), // Or user preference
+				'featured_book_ids' => $validated['featured_book_ids'] ?? [],
+				'llm_model' => env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'),
 			]);
 
 			// --- Construct User Prompt for Initial Generation ---
 			$initialUserPrompt = "Generate the content for my author website with the following information.\n\n";
 			$initialUserPrompt .= "Name: " . $user->name . "\n";
 			$initialUserPrompt .= "Bio:\n" . $user->bio . "\n\n";
-
 			$initialUserPrompt .= "Primary Book to Feature:\n";
 			$initialUserPrompt .= "Title: " . $primaryBook->title . "\n";
 			if ($primaryBook->subtitle) $initialUserPrompt .= "Subtitle: " . $primaryBook->subtitle . "\n";
 			if ($primaryBook->hook) $initialUserPrompt .= "Hook/Tagline: " . $primaryBook->hook . "\n";
 			if ($primaryBook->about) $initialUserPrompt .= "About: " . $primaryBook->about . "\n";
-			if ($primaryBook->cover_image_url) $initialUserPrompt .= "Cover Image URL: " . $primaryBook->cover_image_url . "\n"; // Provide URL if available
+			if ($primaryBook->cover_image_url) $initialUserPrompt .= "Cover Image URL: " . $primaryBook->cover_image_url . "\n";
 			if ($primaryBook->amazon_link) $initialUserPrompt .= "Amazon Link: " . $primaryBook->amazon_link . "\n";
 			if ($primaryBook->other_link) $initialUserPrompt .= "Other Link: " . $primaryBook->other_link . "\n";
 			$initialUserPrompt .= "\n";
@@ -117,7 +111,6 @@
 				$initialUserPrompt .= "Other Books I've written and want to show on the site:\n";
 				foreach ($featuredBooks as $book) {
 					$initialUserPrompt .= "- Title: " . $book->title . ($book->subtitle ? " (" . $book->subtitle . ")" : "") . "\n";
-					// Optionally add links or cover URLs for featured books too
 					if ($book->cover_image_url) $initialUserPrompt .= "  Cover Image URL: " . $book->cover_image_url . "\n";
 					if ($book->amazon_link) $initialUserPrompt .= "  Amazon Link: " . $book->amazon_link . "\n";
 				}
@@ -200,11 +193,11 @@ PHP;
 					'folder' => '/',
 					'filetype' => 'php',
 					'version' => 1,
-					'content' => $minimalIndexContent, // Use minimal content
+					'content' => $minimalIndexContent,
 					'is_deleted' => false,
 				]);
 
-				// Create minimal index file record
+				// Create minimal script.js file record
 				WebsiteFile::create([
 					'website_id' => $website->id,
 					'filename' => 'script.js',
@@ -215,7 +208,7 @@ PHP;
 					'is_deleted' => false,
 				]);
 
-				// Create minimal index file record
+				// Create minimal style.css file record
 				WebsiteFile::create([
 					'website_id' => $website->id,
 					'filename' => 'style.css',
@@ -395,7 +388,6 @@ blockquote {
   font-style: italic;
   margin-top: 1rem;
 }
-
 ",
 					'is_deleted' => false,
 				]);
@@ -404,12 +396,10 @@ blockquote {
 
 			} catch (\Exception $e) {
 				Log::error("Failed to create initial files for Website ID {$website->id}: " . $e->getMessage());
-				// Optionally: Delete the website record or add an error state?
-				// $website->delete(); // Or mark as failed
 				return Redirect::route('dashboard')->with('error', 'Failed to create initial website files. Please try again.');
 			}
 
-			Log::info("Initial User Prompt Content:", ['prompt' => $initialUserPrompt]); // Log the content
+			Log::info("Initial User Prompt Content:", ['prompt' => $initialUserPrompt]);
 			Log::info("Flashing initial_prompt to session for Website ID: {$website->id}");
 
 			// --- Redirect with Initial Prompt ---
@@ -420,24 +410,20 @@ blockquote {
 
 		/**
 		 * Display the specified website (Chat/Preview/Code view).
+		 * MODIFIED: This method now returns a Blade View.
 		 */
-		public function show(Website $website): Response // Type hint Inertia Response
+		public function show(Website $website): View
 		{
-			// Authorize: Ensure the user owns this website
-			$this->authorize('view', $website); // Requires a Policy
-
-			// Eager load messages to avoid N+1 queries
+			$this->authorize('view', $website);
 			$website->load('chatMessages');
 
 			Log::info("Showing website with ID: {$website->id} for user ID: " . Auth::id());
-			Log::info('Initial Prompt:', ['prompt' => session('initial_prompt')]); // Log the initial prompt
+			Log::info('Initial Prompt:', ['prompt' => session('initial_prompt')]);
 
-			// Note: The 'initial_prompt' will be available in the props automatically
-			// if it was flashed using ->with() on the redirect.
-			return Inertia::render('Website/Show', [
+			// MODIFIED: Render the 'websites.show' Blade view.
+			return view('websites.show', [
 				'website' => $website,
 				'chatMessages' => $website->chatMessages,
 			]);
 		}
-
 	}
