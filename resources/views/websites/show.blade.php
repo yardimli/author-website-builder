@@ -11,8 +11,8 @@
 				@foreach($chatMessages as $msg)
 					<div class="chat {{ $msg->role === 'user' ? 'chat-end' : 'chat-start' }}">
 						<div class="chat-bubble {{ $msg->role === 'user' ? 'chat-bubble-primary' : '' }}">
-							{{-- Sanitize and display content --}}
-							{!! nl2br(e($msg->content)) !!}
+							{{-- MODIFIED: Render initial messages as Markdown for rich formatting. --}}
+							{!! \Illuminate\Support\Str::markdown($msg->content) !!}
 						</div>
 					</div>
 				@endforeach
@@ -21,21 +21,19 @@
 			<form id="chat-form" class="p-3 border-t border-base-300 flex items-end gap-2 bg-base-100">
 				<textarea id="chat-input" placeholder="Ask AuthorWebsiteBuilder to build..." class="textarea textarea-bordered flex-grow resize-none text-sm" rows="1"></textarea>
 				<button type="submit" id="chat-submit-btn" class="btn btn-primary btn-square">
-					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+					{{-- MODIFIED: The button icon is now managed by JavaScript to show a spinner. --}}
 				</button>
 			</form>
 		</div>
 		
 		{{-- Right Panel: Preview/Code --}}
 		<div class="flex flex-col w-full md:w-2/3 bg-base-200/50">
-			{{-- MODIFIED: Added a wrapper and the restore button --}}
 			<div class="flex justify-between items-center p-2 border-b border-base-300 bg-base-100">
 				<div class="flex items-center gap-2">
 					<div role="tablist" class="tabs tabs-bordered">
 						<a role="tab" class="tab tab-active" data-tab-content="preview-content">Preview</a>
 						<a role="tab" class="tab" data-tab-content="code-content">Code</a>
 					</div>
-					{{-- NEW: Restore button --}}
 					<button id="restore-btn" class="btn btn-outline btn-sm">Restore...</button>
 				</div>
 				
@@ -46,7 +44,6 @@
 			
 			<div id="preview-content" class="tab-pane flex-grow p-4 overflow-auto">
 				<div id="preview-container" class="mx-auto transition-all duration-300 ease-in-out w-full h-full">
-					{{-- The route helper will now use the website's slug automatically --}}
 					<iframe id="preview-iframe" src="{{ route('website.preview.serve', $website) }}" class="w-full h-full bg-white rounded-md shadow border-0"></iframe>
 				</div>
 			</div>
@@ -75,7 +72,6 @@
 		</div>
 	</div>
 	
-	{{-- NEW: Restore confirmation modal --}}
 	<dialog id="restore_modal" class="modal">
 		<div class="modal-box">
 			<h3 class="font-bold text-lg">Restore Previous Version</h3>
@@ -100,6 +96,8 @@
 @endsection
 
 @push('scripts')
+	{{-- NEW: Added marked.js library for client-side Markdown rendering. --}}
+	<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
 			// --- COMMON ELEMENTS ---
@@ -125,7 +123,7 @@
 			const codeViewer = document.getElementById('code-viewer');
 			const codeEditor = document.getElementById('code-editor');
 			
-			// --- NEW: RESTORE ELEMENTS ---
+			// --- RESTORE ELEMENTS ---
 			const restoreBtn = document.getElementById('restore-btn');
 			const restoreModal = document.getElementById('restore_modal');
 			const restoreStepsInput = document.getElementById('restore-steps');
@@ -139,6 +137,9 @@
 			
 			// --- ICON SVGs ---
 			const icons = {
+				// MODIFIED: Added send and spinner icons for the chat button.
+				send: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>`,
+				spinner: `<span class="loading loading-spinner"></span>`,
 				monitor: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`,
 				smartphone: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>`,
 				edit: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>`,
@@ -151,14 +152,41 @@
 			
 			// --- FUNCTIONS ---
 			
-			function addMessageToUI(role, content) { /* ... no changes ... */ }
+			// NEW: Helper function to scroll the chat container to the very bottom.
+			function scrollChatToBottom() {
+				chatMessages.scrollTop = chatMessages.scrollHeight;
+			};
 			
+			// MODIFIED: This function now uses marked.js to render Markdown and scrolls down after adding a message.
+			function addMessageToUI(role, content) {
+				const messageElement = document.createElement('div');
+				messageElement.className = `chat ${role === 'user' ? 'chat-end' : 'chat-start'}`;
+				
+				const bubble = document.createElement('div');
+				bubble.className = `chat-bubble ${role === 'user' ? 'chat-bubble-primary' : ''}`;
+				// Use marked.js to parse markdown content for rich text
+				bubble.innerHTML = marked.parse(content);
+				
+				messageElement.appendChild(bubble);
+				chatMessages.appendChild(messageElement);
+				
+				// NEW: Scroll to the new message.
+				scrollChatToBottom();
+			};
+			
+			// MODIFIED: This function now provides instant UI feedback and manages the loading state.
 			async function sendMessage(message) {
 				if (!message.trim()) return;
+				
+				// MODIFIED: Add user message to UI right away and clear the input.
 				addMessageToUI('user', message);
 				chatInput.value = '';
+				
+				// MODIFIED: Disable input and show a spinner on the button to indicate processing.
 				chatInput.disabled = true;
+				chatSubmitBtn.innerHTML = icons.spinner;
 				chatSubmitBtn.classList.add('btn-disabled');
+				
 				try {
 					const response = await fetch("{{ route('websites.chat.store', $website) }}", {
 						method: 'POST',
@@ -170,7 +198,10 @@
 						throw new Error(errorData.error || 'Network response was not ok.');
 					}
 					const data = await response.json();
+					
+					// MODIFIED: Add assistant message to the UI. The scroll is handled by addMessageToUI.
 					addMessageToUI('assistant', data.assistantMessage.content);
+					
 					if (data.files_updated) {
 						await fetchFiles();
 						refreshPreview();
@@ -179,18 +210,20 @@
 					console.error('Chat error:', error);
 					addMessageToUI('assistant', 'Sorry, an error occurred: ' + error.message);
 				} finally {
+					// MODIFIED: Re-enable the input and restore the original button icon.
 					chatInput.disabled = false;
+					chatSubmitBtn.innerHTML = icons.send;
 					chatSubmitBtn.classList.remove('btn-disabled');
 					chatInput.focus();
 				}
-			}
+			};
 			
 			function refreshPreview() {
 				if (previewIframe) {
 					const url = "{{ route('website.preview.serve', $website) }}";
 					previewIframe.src = url + '?t=' + new Date().getTime();
 				}
-			}
+			};
 			
 			function renderFileList() {
 				if (files.length === 0) {
@@ -202,7 +235,7 @@
                         <span class="block truncate">${file.folder !== '/' ? `${file.folder.substring(1)}/` : ''}${file.filename}</span>
                     </button>
                 `).join('');
-			}
+			};
 			
 			async function fetchFiles() {
 				try {
@@ -219,7 +252,7 @@
 					console.error('File fetch error:', error);
 					codeFileList.innerHTML = `<div class="text-center p-4 text-sm text-error">Could not load files.</div>`;
 				}
-			}
+			};
 			
 			function selectFile(fileId) {
 				const file = files.find(f => f.id == fileId);
@@ -233,14 +266,14 @@
 				codeViewer.textContent = file.content;
 				codeEditor.value = file.content;
 				renderCodeEditorActions();
-			}
+			};
 			
 			function toggleEditMode(editing) {
 				isEditing = editing;
 				codeViewer.classList.toggle('hidden', isEditing);
 				codeEditor.classList.toggle('hidden', !isEditing);
 				renderCodeEditorActions();
-			}
+			};
 			
 			function renderCodeEditorActions() {
 				if (!selectedFile) {
@@ -255,7 +288,7 @@
 				} else {
 					codeEditorActions.innerHTML = `<button id="edit-btn" class="btn btn-outline btn-xs gap-1">${icons.edit} Edit</button>`;
 				}
-			}
+			};
 			
 			async function saveFile() {
 				if (!selectedFile || isSaving) return;
@@ -286,7 +319,7 @@
 				} finally {
 					isSaving = false;
 				}
-			}
+			};
 			
 			function renderPanelControls(activeTab) {
 				panelControls.innerHTML = '';
@@ -299,9 +332,8 @@
                         <button data-action="open" class="btn btn-outline btn-sm btn-square" title="Open in New Tab">${icons.externalLink}</button>
                     `;
 				}
-			}
+			};
 			
-			// --- NEW: Restore History Function ---
 			async function restoreHistory() {
 				const steps = parseInt(restoreStepsInput.value, 10);
 				if (isNaN(steps) || steps < 1) {
@@ -328,9 +360,8 @@
 						throw new Error(data.error || data.message || 'Failed to restore history.');
 					}
 					
-					// Success
 					restoreModal.close();
-					alert('Successfully restored files!'); // Replace with a better notification if you have one
+					alert('Successfully restored files!');
 					await fetchFiles();
 					refreshPreview();
 					
@@ -340,11 +371,22 @@
 				} finally {
 					confirmRestoreBtn.classList.remove('btn-disabled', 'loading');
 				}
-			}
+			};
 			
 			// --- EVENT LISTENERS ---
 			
 			chatForm.addEventListener('submit', (e) => { e.preventDefault(); sendMessage(chatInput.value); });
+			
+			// NEW: Listen for keydown events on the chat input.
+			chatInput.addEventListener('keydown', (e) => {
+				// If the user presses Enter without holding Ctrl, submit the form.
+				if (e.key === 'Enter' && !e.ctrlKey) {
+					e.preventDefault(); // Prevent the default action (new line).
+					chatForm.dispatchEvent(new Event('submit'));
+				}
+				// If Ctrl+Enter is pressed, the default action (new line) is allowed.
+			});
+			
 			if (initialPrompt) { sendMessage(initialPrompt); }
 			
 			const tabs = document.querySelectorAll('[data-tab-content]');
@@ -401,7 +443,6 @@
 				}
 			});
 			
-			// --- NEW: Event Listeners for Restore Functionality ---
 			if (restoreBtn) {
 				restoreBtn.addEventListener('click', () => {
 					if (restoreModal) {
@@ -418,8 +459,15 @@
 			}
 			
 			// --- INITIALIZATION ---
+			
+			// NEW: Set the initial icon for the chat submit button.
+			chatSubmitBtn.innerHTML = icons.send;
+			
 			renderPanelControls('preview-content');
 			fetchFiles();
+			
+			// NEW: Scroll the chat to the bottom when the page first loads.
+			scrollChatToBottom();
 		});
 	</script>
 @endpush
