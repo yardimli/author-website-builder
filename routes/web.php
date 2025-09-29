@@ -1,4 +1,4 @@
-w<?php
+<?php
 
 	use App\Http\Controllers\ChatMessageController;
 	use App\Http\Controllers\PageController;
@@ -65,6 +65,8 @@ w<?php
 		Route::patch('/websites/{website:slug}/slug', [WebsiteController::class, 'updateSlug'])->name('websites.slug.update');
 		// NEW: Route for checking slug availability via AJAX
 		Route::post('/websites/slug/check', [WebsiteController::class, 'checkSlug'])->name('websites.slug.check');
+		// NEW: Route for restoring a website's file history
+		Route::post('/websites/{website:slug}/restore', [WebsiteController::class, 'restore'])->name('websites.restore');
 
 
 		// MODIFIED: Chat route now uses the slug

@@ -7,6 +7,7 @@
 	use App\Models\Book;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
+	use Illuminate\Support\Facades\DB; // MODIFIED: Import DB facade
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Validation\Rule;
@@ -486,5 +487,47 @@ blockquote {
 			$website->save();
 
 			return Redirect::route('dashboard')->with('status', 'website-slug-updated');
+		}
+
+		/**
+		 * NEW: Restore the website's file system to a previous state.
+		 */
+		public function restore(Request $request, Website $website)
+		{
+			$this->authorize('update', $website);
+
+			$validated = $request->validate([
+				'steps' => 'required|integer|min:1',
+			]);
+
+			$stepsToRevert = $validated['steps'];
+
+			DB::beginTransaction();
+			try {
+				// Find the IDs of the last 'n' file operations to revert
+				$fileIdsToDelete = WebsiteFile::where('website_id', $website->id)
+					->orderByDesc('id')
+					->limit($stepsToRevert)
+					->pluck('id');
+
+				if ($fileIdsToDelete->isEmpty()) {
+					DB::rollBack();
+					return response()->json(['message' => 'No file history to restore.'], 404);
+				}
+
+				// Delete the identified records
+				WebsiteFile::whereIn('id', $fileIdsToDelete)->delete();
+
+				DB::commit();
+
+				Log::info("User ID " . Auth::id() . " restored Website ID {$website->id} by {$stepsToRevert} steps.");
+
+				return response()->json(['message' => "Successfully restored the last {$stepsToRevert} file operations."]);
+
+			} catch (\Exception $e) {
+				DB::rollBack();
+				Log::error("Error restoring website history for Website ID {$website->id}: " . $e->getMessage());
+				return response()->json(['error' => 'An unexpected error occurred while trying to restore the files.'], 500);
+			}
 		}
 	}

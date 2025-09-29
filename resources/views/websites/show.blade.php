@@ -28,10 +28,15 @@
 		
 		{{-- Right Panel: Preview/Code --}}
 		<div class="flex flex-col w-full md:w-2/3 bg-base-200/50">
+			{{-- MODIFIED: Added a wrapper and the restore button --}}
 			<div class="flex justify-between items-center p-2 border-b border-base-300 bg-base-100">
-				<div role="tablist" class="tabs tabs-bordered">
-					<a role="tab" class="tab tab-active" data-tab-content="preview-content">Preview</a>
-					<a role="tab" class="tab" data-tab-content="code-content">Code</a>
+				<div class="flex items-center gap-2">
+					<div role="tablist" class="tabs tabs-bordered">
+						<a role="tab" class="tab tab-active" data-tab-content="preview-content">Preview</a>
+						<a role="tab" class="tab" data-tab-content="code-content">Code</a>
+					</div>
+					{{-- NEW: Restore button --}}
+					<button id="restore-btn" class="btn btn-outline btn-sm">Restore...</button>
 				</div>
 				
 				<div id="panel-controls" class="flex items-center gap-1">
@@ -69,6 +74,29 @@
 			</div>
 		</div>
 	</div>
+	
+	{{-- NEW: Restore confirmation modal --}}
+	<dialog id="restore_modal" class="modal">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg">Restore Previous Version</h3>
+			<p class="py-4">This will permanently delete the last file operations. This action cannot be undone. How many steps would you like to go back?</p>
+			
+			<div class="form-control w-full">
+				<label class="label" for="restore-steps">
+					<span class="label-text">Number of steps to revert (1 step = 1 file change)</span>
+				</label>
+				<input type="number" id="restore-steps" class="input input-bordered w-full" value="1" min="1" max="50">
+			</div>
+			
+			<div class="modal-action">
+				<form method="dialog">
+					<button class="btn">Cancel</button>
+				</form>
+				<button id="confirm-restore-btn" class="btn btn-error">Yes, Restore</button>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop"><button>close</button></form>
+	</dialog>
 @endsection
 
 @push('scripts')
@@ -96,6 +124,12 @@
 			const codeEditorActions = document.getElementById('code-editor-actions');
 			const codeViewer = document.getElementById('code-viewer');
 			const codeEditor = document.getElementById('code-editor');
+			
+			// --- NEW: RESTORE ELEMENTS ---
+			const restoreBtn = document.getElementById('restore-btn');
+			const restoreModal = document.getElementById('restore_modal');
+			const restoreStepsInput = document.getElementById('restore-steps');
+			const confirmRestoreBtn = document.getElementById('confirm-restore-btn');
 			
 			// --- STATE MANAGEMENT ---
 			let files = [];
@@ -267,6 +301,47 @@
 				}
 			}
 			
+			// --- NEW: Restore History Function ---
+			async function restoreHistory() {
+				const steps = parseInt(restoreStepsInput.value, 10);
+				if (isNaN(steps) || steps < 1) {
+					alert('Please enter a valid number of steps.');
+					return;
+				}
+				
+				confirmRestoreBtn.classList.add('btn-disabled', 'loading');
+				
+				try {
+					const response = await fetch("{{ route('websites.restore', $website) }}", {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							'X-CSRF-TOKEN': csrfToken,
+							'Accept': 'application/json',
+						},
+						body: JSON.stringify({ steps: steps }),
+					});
+					
+					const data = await response.json();
+					
+					if (!response.ok) {
+						throw new Error(data.error || data.message || 'Failed to restore history.');
+					}
+					
+					// Success
+					restoreModal.close();
+					alert('Successfully restored files!'); // Replace with a better notification if you have one
+					await fetchFiles();
+					refreshPreview();
+					
+				} catch (error) {
+					console.error('Restore error:', error);
+					alert('Error: ' + error.message);
+				} finally {
+					confirmRestoreBtn.classList.remove('btn-disabled', 'loading');
+				}
+			}
+			
 			// --- EVENT LISTENERS ---
 			
 			chatForm.addEventListener('submit', (e) => { e.preventDefault(); sendMessage(chatInput.value); });
@@ -325,6 +400,22 @@
 					selectFile(button.dataset.fileId);
 				}
 			});
+			
+			// --- NEW: Event Listeners for Restore Functionality ---
+			if (restoreBtn) {
+				restoreBtn.addEventListener('click', () => {
+					if (restoreModal) {
+						restoreModal.showModal();
+					}
+				});
+			}
+			
+			if (confirmRestoreBtn) {
+				confirmRestoreBtn.addEventListener('click', (e) => {
+					e.preventDefault();
+					restoreHistory();
+				});
+			}
 			
 			// --- INITIALIZATION ---
 			renderPanelControls('preview-content');
