@@ -6,11 +6,14 @@
 	use App\Http\Requests\ProfileUpdateRequest;
 	use App\Models\Book;
 	use Illuminate\Contracts\Auth\MustVerifyEmail;
-	use Illuminate\Http\JsonResponse; // MODIFIED: Import JsonResponse
+	use Illuminate\Http\JsonResponse;
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
-	use Illuminate\Support\Facades\Http; // MODIFIED: Import Http
+	use Illuminate\Support\Facades\DB;
+
+	// MODIFIED: Import DB facade
+	use Illuminate\Support\Facades\Http;
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Support\Facades\Storage;
 	use Illuminate\Support\Facades\Validator;
@@ -397,10 +400,9 @@
 			return view('profile.import');
 		}
 
-		/**
-		 * NEW: Fetch book data from the BookCoverZone API.
-		 */
-		public function fetchBookcoverzoneBooks(Request $request): JsonResponse
+
+		//currently not in use will be used in the future when build and web are on different servers
+		public function fetchBookcoverzoneBooksFromUrl(Request $request): JsonResponse
 		{
 			$user = $request->user();
 			if (!$user->bookcoverzone_user_id) {
@@ -433,6 +435,133 @@
 			} catch (\Exception $e) {
 				Log::error('Exception while calling BookCoverZone API: ' . $e->getMessage());
 				return response()->json(['success' => false, 'message' => 'An error occurred while fetching your books.'], 500);
+			}
+		}
+
+		/**
+		 * NEW: Fetch book data from the BookCoverZone API.
+		 */
+		public function fetchBookcoverzoneBooks(Request $request): JsonResponse
+		{
+			$user = $request->user();
+			if (!$user->bookcoverzone_user_id) {
+				return response()->json(['success' => false, 'message' => 'Your account is not linked to a BookCoverZone user ID.'], 400);
+			}
+
+			$userId = $user->bookcoverzone_user_id;
+			$bczSiteUrl = env('BOOKCOVERZONE_SITE_URL', 'https://bookcoverzone.com');
+			$userLayersUrl = env('BOOKCOVERZONE_USER_LAYERS_URL', 'https://user-layers.bookcoverzone.com');
+
+			try {
+				// Subquery to find all purchased cover filenames for the user
+				$purchasedCoversSubquery = "
+            SELECT DISTINCT sc.photoshop_filename 
+            FROM shoppingcarts sc 
+            JOIN orders o ON sc.order_id = o.id 
+            JOIN products p ON sc.product_id = p.id 
+            WHERE sc.user_id = ? AND o.status = 'success' AND p.type = 'bookcover'
+        ";
+
+				// Main query to get the latest front and back cover renders
+				$sql = "
+            SELECT 
+                front.id AS front_history_id,
+                front.create_time AS render_date,
+                front.fields AS front_fields,
+                back.id AS back_history_id,
+                back.fields AS back_fields,
+                EXISTS(SELECT 1 FROM shoppingcarts sc JOIN orders o ON sc.order_id = o.id JOIN products p ON sc.product_id = p.id WHERE sc.user_id = ? AND o.status = 'success' AND p.type = 'bookcover' AND sc.photoshop_filename = JSON_UNQUOTE(JSON_EXTRACT(front.fields, '$.coverfile'))) as is_purchased
+            FROM 
+                (
+                    SELECT h1.*
+                    FROM bkz_front_drag_history h1
+                    INNER JOIN (
+                        SELECT 
+                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile')) as coverfile, 
+                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name')) as trim_size_name,
+                            MAX(id) as max_id
+                        FROM bkz_front_drag_history
+                        WHERE userid = ? AND (render_result = 'yes' OR render_status = 11)
+                        GROUP BY coverfile, trim_size_name
+                    ) h2 ON JSON_UNQUOTE(JSON_EXTRACT(h1.fields, '$.coverfile')) = h2.coverfile 
+                           AND JSON_UNQUOTE(JSON_EXTRACT(h1.fields, '$.trim_size_name')) = h2.trim_size_name
+                           AND h1.id = h2.max_id
+                ) AS front
+            LEFT JOIN 
+                (
+                    SELECT h3.*
+                    FROM bkz_back_drag_history h3
+                    INNER JOIN (
+                        SELECT 
+                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile')) as coverfile, 
+                            JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name')) as trim_size_name,
+                            MAX(id) as max_id
+                        FROM bkz_back_drag_history
+                        WHERE userid = ? AND (render_result = 'yes' OR render_status = 11)
+                        GROUP BY coverfile, trim_size_name
+                    ) h4 ON JSON_UNQUOTE(JSON_EXTRACT(h3.fields, '$.coverfile')) = h4.coverfile 
+                           AND JSON_UNQUOTE(JSON_EXTRACT(h3.fields, '$.trim_size_name')) = h4.trim_size_name
+                           AND h3.id = h4.max_id
+                ) AS back ON JSON_UNQUOTE(JSON_EXTRACT(front.fields, '$.coverfile')) = JSON_UNQUOTE(JSON_EXTRACT(back.fields, '$.coverfile'))
+                          AND JSON_UNQUOTE(JSON_EXTRACT(front.fields, '$.trim_size_name')) = JSON_UNQUOTE(JSON_EXTRACT(back.fields, '$.trim_size_name'))
+            ORDER BY 
+                back.id DESC, front.id DESC
+        ";
+
+				$results = DB::connection('mysql_bookcoverzone')->select($sql, [$userId, $userId, $userId]);
+
+				$books = [];
+				foreach ($results as $row) {
+					$frontFields = json_decode($row->front_fields, true);
+					$backFields = $row->back_fields ? json_decode($row->back_fields, true) : null;
+
+					// Extract Title
+					$title = 'Untitled';
+					foreach ($frontFields as $key => $value) {
+						if (stripos($key, "layer_title") !== false && stripos($key, "text") !== false && !empty($value)) {
+							$title = $value;
+							break;
+						}
+					}
+
+					// Extract Author
+					$author = '';
+					foreach ($frontFields as $key => $value) {
+						if (stripos($key, "layer_author") !== false && stripos($key, "text") !== false && !empty($value)) {
+							$author = $value;
+							break;
+						}
+					}
+
+					// Find Author Photo
+					$authorPhotoUrl = null;
+					$photoRow = DB::connection('mysql_bookcoverzone')->table('bkz_members_image_library')->where('userid', $userId)->first();
+					if ($photoRow && !empty($photoRow->author_image_file) && $photoRow->author_image_file !== '/img/backcover-image-placeholder.jpg') {
+						$authorPhotoUrl = rtrim($bczSiteUrl, '/') . $photoRow->author_image_file;
+					}
+
+					$books[] = [
+						'front_history_id' => (int)$row->front_history_id,
+						'back_history_id' => $row->back_history_id ? (int)$row->back_history_id : null,
+						'cover_id' => $frontFields['coverfile'] ?? 'N/A',
+						'trim_size_name' => $frontFields['trim_size_display_name'] ?? 'Ebook',
+						'trim_size_value' => $frontFields['trim_size_name'] ?? 'N/A',
+						'render_date' => $row->render_date,
+						'is_purchased' => (bool)$row->is_purchased,
+						'has_back_cover' => !is_null($backFields),
+						'title' => htmlspecialchars($title),
+						'author' => htmlspecialchars($author),
+						'front_cover_url' => rtrim($userLayersUrl, '/') . "/{$userId}/{$frontFields['coverfile']}/{$frontFields['tempfilename']}-{$frontFields['trim_size_name']}.jpg",
+						'author_bio' => $backFields['biographytext'] ?? null,
+						'author_photo_url' => ($backFields && ($backFields['use_picture'] ?? 'no') === 'yes') ? $authorPhotoUrl : null,
+					];
+				}
+
+				return response()->json(['success' => true, 'books' => $books]);
+
+			} catch (\Exception $e) {
+				Log::error('Exception while querying BookCoverZone DB: ' . $e->getMessage());
+				return response()->json(['success' => false, 'message' => 'An error occurred while fetching your books from the database.'], 500);
 			}
 		}
 
@@ -533,7 +662,7 @@
 			if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
 				Storage::disk('public')->delete($user->profile_photo_path);
 			}
-			foreach($user->books as $book) {
+			foreach ($user->books as $book) {
 				if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
 					Storage::disk('public')->delete($book->cover_image_path);
 				}
