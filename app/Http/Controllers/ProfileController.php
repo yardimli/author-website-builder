@@ -183,7 +183,7 @@
 
 
 			$chat_messages = [['role' => 'user', 'content' => $user_message]];
-			$llmModel = env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025'); // Or use a user-specific setting if available
+			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting if available
 
 			Log::info("Requesting AI bio generation for user {$user->id}");
 			$llmResponse = LlmHelper::call_llm($llmModel, $system_prompt, $chat_messages);
@@ -242,7 +242,7 @@
 		private function callBookAiGenerator($user, $system_prompt, $user_message, $fieldType)
 		{
 			$chat_messages = [['role' => 'user', 'content' => $user_message]];
-			$llmModel = env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025'); // Or use a user-specific setting
+			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting
 
 			Log::info("Requesting AI book {$fieldType} generation for user {$user->id}");
 			$llmResponse = LlmHelper::call_llm($llmModel, $system_prompt, $chat_messages);
@@ -413,59 +413,83 @@
 			$userLayersUrl = env('BOOKCOVERZONE_USER_LAYERS_URL', 'https://user-layers.bookcoverzone.com');
 
 			try {
-				// MODIFIED: The entire SQL query has been updated to use explicit table aliases
-				// in the innermost subqueries to prevent "Unknown column" errors.
-				$sql = "
-            SELECT 
-                front.id AS front_history_id,
-                front.create_time AS render_date,
-                front.fields AS front_fields,
-                back.id AS back_history_id,
-                back.fields AS back_fields,
-                EXISTS(SELECT 1 FROM shoppingcarts sc JOIN orders o ON sc.order_id = o.id JOIN products p ON sc.product_id = p.id WHERE sc.user_id = ? AND o.status = 'success' AND p.type = 'bookcover' AND sc.photoshop_filename = JSON_UNQUOTE(JSON_EXTRACT(front.fields, '$.coverfile'))) as is_purchased
-            FROM 
-                (
-                    SELECT h1.*
-                    FROM bkz_front_drag_history h1
-                    INNER JOIN (
-                        SELECT 
-                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_front.fields, '$.coverfile')) as coverfile, 
-                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_front.fields, '$.trim_size_name')) as trim_size_name,
-                            MAX(h_inner_front.id) as max_id
-                        FROM bkz_front_drag_history AS h_inner_front
-                        WHERE h_inner_front.userid = ? AND (h_inner_front.render_result = 'yes' OR h_inner_front.render_status = 11)
-                        GROUP BY coverfile, trim_size_name
-                    ) h2 ON JSON_UNQUOTE(JSON_EXTRACT(h1.fields, '$.coverfile')) = h2.coverfile 
-                           AND JSON_UNQUOTE(JSON_EXTRACT(h1.fields, '$.trim_size_name')) = h2.trim_size_name
-                           AND h1.id = h2.max_id
-                ) AS front
-            LEFT JOIN 
-                (
-                    SELECT h3.*
-                    FROM bkz_back_drag_history h3
-                    INNER JOIN (
-                        SELECT 
-                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_back.fields, '$.coverfile')) as coverfile, 
-                            JSON_UNQUOTE(JSON_EXTRACT(h_inner_back.fields, '$.trim_size_name')) as trim_size_name,
-                            MAX(h_inner_back.id) as max_id
-                        FROM bkz_back_drag_history AS h_inner_back
-                        WHERE h_inner_back.userid = ? AND (h_inner_back.render_result = 'yes' OR h_inner_back.render_status = 11)
-                        GROUP BY coverfile, trim_size_name
-                    ) h4 ON JSON_UNQUOTE(JSON_EXTRACT(h3.fields, '$.coverfile')) = h4.coverfile 
-                           AND JSON_UNQUOTE(JSON_EXTRACT(h3.fields, '$.trim_size_name')) = h4.trim_size_name
-                           AND h3.id = h4.max_id
-                ) AS back ON JSON_UNQUOTE(JSON_EXTRACT(front.fields, '$.coverfile')) = JSON_UNQUOTE(JSON_EXTRACT(back.fields, '$.coverfile'))
-                          AND JSON_UNQUOTE(JSON_EXTRACT(front.fields, '$.trim_size_name')) = JSON_UNQUOTE(JSON_EXTRACT(back.fields, '$.trim_size_name'))
-            ORDER BY 
-                back.id DESC, front.id DESC
-        ";
+				// MODIFICATION START: Replaced single complex query with multiple simpler queries and PHP loops.
 
-				$results = DB::connection('mysql_bookcoverzone')->select($sql, [$userId, $userId, $userId]);
+				// 1. Get all purchased cover filenames for the user for quick lookup.
+				$purchasedCovers = DB::connection('mysql_bookcoverzone')
+					->table('shoppingcarts as sc')
+					->join('orders as o', 'sc.order_id', '=', 'o.id')
+					->join('products as p', 'sc.product_id', '=', 'p.id')
+					->where('sc.user_id', $userId)
+					->where('o.status', 'success')
+					->where('p.type', 'bookcover')
+					->distinct()
+					->pluck('sc.photoshop_filename')
+					->all();
 
+				// 2. Get the latest front cover renders.
+				$latestFrontHistoryIds = DB::connection('mysql_bookcoverzone')
+					->table('bkz_front_drag_history')
+					->select(DB::raw('MAX(id) as max_id'))
+					->where('userid', $userId)
+					->where(function ($query) {
+						$query->where('render_result', 'yes')
+							->orWhere('render_status', 11);
+					})
+					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
+					->pluck('max_id');
+
+				$latestFrontRenders = DB::connection('mysql_bookcoverzone')
+					->table('bkz_front_drag_history')
+					->whereIn('id', $latestFrontHistoryIds)
+					->orderBy('id', 'desc')
+					->get();
+
+				// 3. Get the latest back cover renders and map them for easy lookup.
+				$latestBackHistoryIds = DB::connection('mysql_bookcoverzone')
+					->table('bkz_back_drag_history')
+					->select(DB::raw('MAX(id) as max_id'))
+					->where('userid', $userId)
+					->where(function ($query) {
+						$query->where('render_result', 'yes')
+							->orWhere('render_status', 11);
+					})
+					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
+					->pluck('max_id');
+
+				$latestBackRendersResults = DB::connection('mysql_bookcoverzone')
+					->table('bkz_back_drag_history')
+					->whereIn('id', $latestBackHistoryIds)
+					->get();
+
+				$backRendersMap = [];
+				foreach ($latestBackRendersResults as $render) {
+					$fields = json_decode($render->fields, true);
+					$key = ($fields['coverfile'] ?? '') . ':' . ($fields['trim_size_name'] ?? '');
+					$backRendersMap[$key] = $render;
+				}
+
+				// 4. Get the user's author photo URL.
+				$authorPhotoUrl = null;
+				$photoRow = DB::connection('mysql_bookcoverzone')->table('bkz_members_image_library')->where('userid', $userId)->first();
+				if ($photoRow && !empty($photoRow->author_image_file) && $photoRow->author_image_file !== '/img/backcover-image-placeholder.jpg') {
+					$authorPhotoUrl = rtrim($bczSiteUrl, '/') . $photoRow->author_image_file;
+				}
+
+				// 5. Loop through front renders and assemble the final book data.
 				$books = [];
-				foreach ($results as $row) {
-					$frontFields = json_decode($row->front_fields, true);
-					$backFields = $row->back_fields ? json_decode($row->back_fields, true) : null;
+				foreach ($latestFrontRenders as $frontRender) {
+					$frontFields = json_decode($frontRender->fields, true);
+					$coverfile = $frontFields['coverfile'] ?? null;
+					$trimSize = $frontFields['trim_size_name'] ?? null;
+
+					if (!$coverfile || !$trimSize) {
+						continue; // Skip if essential data is missing
+					}
+
+					$lookupKey = $coverfile . ':' . $trimSize;
+					$backRender = $backRendersMap[$lookupKey] ?? null;
+					$backFields = $backRender ? json_decode($backRender->fields, true) : null;
 
 					// Extract Title
 					$title = 'Untitled';
@@ -485,29 +509,35 @@
 						}
 					}
 
-					// Find Author Photo
-					$authorPhotoUrl = null;
-					$photoRow = DB::connection('mysql_bookcoverzone')->table('bkz_members_image_library')->where('userid', $userId)->first();
-					if ($photoRow && !empty($photoRow->author_image_file) && $photoRow->author_image_file !== '/img/backcover-image-placeholder.jpg') {
-						$authorPhotoUrl = rtrim($bczSiteUrl, '/') . $photoRow->author_image_file;
-					}
-
 					$books[] = [
-						'front_history_id' => (int)$row->front_history_id,
-						'back_history_id' => $row->back_history_id ? (int)$row->back_history_id : null,
-						'cover_id' => $frontFields['coverfile'] ?? 'N/A',
+						'front_history_id' => (int)$frontRender->id,
+						'back_history_id' => $backRender ? (int)$backRender->id : null,
+						'cover_id' => $coverfile,
 						'trim_size_name' => $frontFields['trim_size_display_name'] ?? 'Ebook',
-						'trim_size_value' => $frontFields['trim_size_name'] ?? 'N/A',
-						'render_date' => $row->render_date,
-						'is_purchased' => (bool)$row->is_purchased,
-						'has_back_cover' => !is_null($backFields),
+						'trim_size_value' => $trimSize,
+						'render_date' => $frontRender->create_time,
+						'is_purchased' => in_array($coverfile, $purchasedCovers),
+						'has_back_cover' => !is_null($backRender),
 						'title' => htmlspecialchars($title),
 						'author' => htmlspecialchars($author),
-						'front_cover_url' => rtrim($userLayersUrl, '/') . "/{$userId}/{$frontFields['coverfile']}/{$frontFields['tempfilename']}-{$frontFields['trim_size_name']}.jpg",
+						'front_cover_url' => rtrim($userLayersUrl, '/') . "/{$userId}/{$coverfile}/{$frontFields['tempfilename']}-{$trimSize}.jpg",
 						'author_bio' => $backFields['biographytext'] ?? null,
 						'author_photo_url' => ($backFields && ($backFields['use_picture'] ?? 'no') === 'yes') ? $authorPhotoUrl : null,
 					];
 				}
+
+				// 6. Sort the results in PHP to prioritize books with back covers.
+				usort($books, function ($a, $b) {
+					if ($a['has_back_cover'] && !$b['has_back_cover']) {
+						return -1;
+					}
+					if (!$a['has_back_cover'] && $b['has_back_cover']) {
+						return 1;
+					}
+					return strtotime($b['render_date']) - strtotime($a['render_date']);
+				});
+
+				// MODIFICATION END
 
 				return response()->json(['success' => true, 'books' => $books]);
 
