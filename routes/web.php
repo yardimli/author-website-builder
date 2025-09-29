@@ -6,6 +6,7 @@
 	use App\Http\Controllers\WebsiteController;
 	use App\Http\Controllers\WebsiteFileController;
 	use App\Http\Controllers\WebsitePreviewController;
+	use App\Http\Controllers\AuthController; // MODIFIED: Add AuthController
 	use Illuminate\Support\Facades\Route;
 
 	/*
@@ -19,11 +20,14 @@
 	|
 	*/
 
-// The home route remains the same
+	// MODIFIED: Add auto-login route from BookCoverZone
+	Route::get('/auto-login', [AuthController::class, 'handleAutoLogin'])->name('auto.login');
+
+	// The home route remains the same
 	Route::get('/', [PageController::class, 'home'])->name('home');
 	Route::get('/home', [PageController::class, 'home'])->name('home');
 
-// MODIFIED: The website preview route now uses the slug for lookup
+	// MODIFIED: The website preview route now uses the slug for lookup
 	Route::get('/website/{website:slug}/{path?}', [WebsitePreviewController::class, 'serve'])
 		->where('path', '.*')
 		->name('website.preview.serve');

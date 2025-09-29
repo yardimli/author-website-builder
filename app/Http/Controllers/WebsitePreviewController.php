@@ -80,8 +80,10 @@
 					}
 
 					// *** START: Calculate Base URL ***
-					// The base URL should point to the root of the preview for this specific website
-					$baseUrl = route('website.preview.serve', ['website' => $website->id, 'path' => '']);
+					// MODIFIED: Pass the entire $website object to the route() helper.
+					// This allows Laravel's route model binding to correctly use the website's slug
+					// to generate the URL, instead of its ID. This fixes asset loading errors (404s).
+					$baseUrl = route('website.preview.serve', ['website' => $website, 'path' => '']);
 					// Ensure it has a trailing slash, crucial for <base href>
 					$baseUrl = rtrim($baseUrl, '/') . '/';
 					$baseTag = "<base href=\"" . htmlspecialchars($baseUrl) . "\">";

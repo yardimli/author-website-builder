@@ -25,6 +25,7 @@
 			'password',
 			'profile_photo_path', // <-- Add
 			'bio',              // <-- Add
+			'bookcoverzone_user_id', // MODIFIED: Add field for linking to original user ID
 		];
 
 		/**
