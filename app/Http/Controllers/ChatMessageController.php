@@ -300,7 +300,9 @@
 				// MODIFIED: START - Strip HTML tags from the final content to prevent formatting issues in the chat UI.
 				// This ensures that only plain text and Markdown-like text are passed to the frontend,
 				// avoiding potential layout breaks from raw HTML in the chat bubble.
+				$finalContent = str_replace(['<br>', '<br/>', '<br />'], "\n", $finalContent);
 				$finalContent = strip_tags($finalContent);
+				$finalContent = str_replace("\n", '<br>', $finalContent); // Normalize line endings to just \n
 				// MODIFIED: END
 
 				$assistantMessage = $website->chatMessages()->create([
