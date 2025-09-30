@@ -19,6 +19,8 @@
 	use Illuminate\Support\Str;
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\View\View;
+	// NEW: Import Paginator for manual pagination
+	use Illuminate\Pagination\LengthAwarePaginator;
 
 	class ProfileController extends Controller
 	{
@@ -399,7 +401,7 @@
 		}
 
 		/**
-		 * NEW: Fetch book data from the BookCoverZone API.
+		 * NEW: Fetch book data from the BookCoverZone API with search and pagination.
 		 */
 		public function fetchBookcoverzoneBooks(Request $request): JsonResponse
 		{
@@ -411,9 +413,11 @@
 			$userId = $user->bookcoverzone_user_id;
 			$bczSiteUrl = env('BOOKCOVERZONE_SITE_URL', 'https://bookcoverzone.com');
 			$userLayersUrl = env('BOOKCOVERZONE_USER_LAYERS_URL', 'https://user-layers.bookcoverzone.com');
+			$searchTerm = $request->input('search', '');
+			$perPage = 15;
 
 			try {
-				// MODIFICATION START: Replaced single complex query with multiple simpler queries and PHP loops.
+				// --- MODIFICATION START: Reworked to support search and pagination ---
 
 				// 1. Get all purchased cover filenames for the user for quick lookup.
 				$purchasedCovers = DB::connection('mysql_bookcoverzone')
@@ -427,8 +431,9 @@
 					->pluck('sc.photoshop_filename')
 					->all();
 
-				// 2. Get the latest front cover renders.
-				$latestFrontHistoryIds = DB::connection('mysql_bookcoverzone')
+				// 2. Base query for latest front renders, with search.
+				// This subquery finds the latest ID for each cover/trim size combination.
+				$latestFrontHistorySubquery = DB::connection('mysql_bookcoverzone')
 					->table('bkz_front_drag_history')
 					->select(DB::raw('MAX(id) as max_id'))
 					->where('userid', $userId)
@@ -436,22 +441,54 @@
 						$query->where('render_result', 'yes')
 							->orWhere('render_status', 11);
 					})
-					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
-					->pluck('max_id');
+					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"));
 
-				$latestFrontRenders = DB::connection('mysql_bookcoverzone')
+				// Main query to get front render data, applying search term.
+				$frontRendersQuery = DB::connection('mysql_bookcoverzone')
 					->table('bkz_front_drag_history')
-					->whereIn('id', $latestFrontHistoryIds)
-					->orderBy('id', 'desc')
-					->get();
+					->whereIn('id', $latestFrontHistorySubquery);
 
-				// 3. Get the latest back cover renders and map them for easy lookup.
+				if (!empty($searchTerm)) {
+					// This search is imperfect due to dynamic JSON keys but is a practical approach.
+					$frontRendersQuery->where('fields', 'LIKE', '%' . $searchTerm . '%');
+				}
+
+				// Manually paginate the results of the main query.
+				$total = $frontRendersQuery->count();
+				$currentPage = LengthAwarePaginator::resolveCurrentPage();
+				$results = $frontRendersQuery->orderBy('id', 'desc')->forPage($currentPage, $perPage)->get();
+				$paginatedFrontRenders = new LengthAwarePaginator($results, $total, $perPage, $currentPage, [
+					'path' => LengthAwarePaginator::resolveCurrentPath(),
+				]);
+
+				if ($paginatedFrontRenders->isEmpty()) {
+					return response()->json(['success' => true, 'books' => $paginatedFrontRenders]);
+				}
+
+				// 3. Get keys (coverfile:trim_size) from the current page of results to fetch related data efficiently.
+				$pageKeys = $paginatedFrontRenders->map(function ($render) {
+					$fields = json_decode($render->fields, true);
+					return [
+						'coverfile' => $fields['coverfile'] ?? null,
+						'trim_size' => $fields['trim_size_name'] ?? null,
+					];
+				})->filter();
+
+				// 4. Get the latest back cover renders that match the keys on the current page.
 				$latestBackHistoryIds = DB::connection('mysql_bookcoverzone')
 					->table('bkz_back_drag_history')
 					->select(DB::raw('MAX(id) as max_id'))
 					->where('userid', $userId)
 					->where(function ($query) {
-						$query->Where('render_status', 11);
+						$query->where('render_status', 11);
+					})
+					->where(function ($query) use ($pageKeys) {
+						foreach ($pageKeys as $key) {
+							$query->orWhere(function ($q) use ($key) {
+								$q->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), $key['coverfile'])
+									->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"), $key['trim_size']);
+							});
+						}
 					})
 					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
 					->pluck('max_id');
@@ -468,23 +505,21 @@
 					$backRendersMap[$key] = $render;
 				}
 
-				// 4. Get the user's author photo URL.
+				// 5. Get the user's author photo URL.
 				$authorPhotoUrl = null;
 				$photoRow = DB::connection('mysql_bookcoverzone')->table('bkz_members_image_library')->where('userid', $userId)->first();
 				if ($photoRow && !empty($photoRow->author_image_file) && $photoRow->author_image_file !== '/img/backcover-image-placeholder.jpg') {
 					$authorPhotoUrl = rtrim($bczSiteUrl, '/') . $photoRow->author_image_file;
 				}
 
-				// 5. Loop through front renders and assemble the final book data.
+				// 6. Loop through the paginated front renders and assemble the final book data.
 				$books = [];
-				foreach ($latestFrontRenders as $frontRender) {
+				foreach ($paginatedFrontRenders as $frontRender) {
 					$frontFields = json_decode($frontRender->fields, true);
 					$coverfile = $frontFields['coverfile'] ?? null;
 					$trimSize = $frontFields['trim_size_name'] ?? null;
 
-					if (!$coverfile || !$trimSize) {
-						continue; // Skip if essential data is missing
-					}
+					if (!$coverfile || !$trimSize) continue;
 
 					$lookupKey = $coverfile . ':' . $trimSize;
 					$backRender = $backRendersMap[$lookupKey] ?? null;
@@ -525,23 +560,24 @@
 					];
 				}
 
-				// 6. Sort the results in PHP to prioritize books with back covers.
+				// 7. Sort the results on the current page to prioritize books with back covers.
 				usort($books, function ($a, $b) {
-					if ($a['has_back_cover'] && !$b['has_back_cover']) {
-						return -1;
-					}
-					if (!$a['has_back_cover'] && $b['has_back_cover']) {
-						return 1;
-					}
+					if ($a['has_back_cover'] && !$b['has_back_cover']) return -1;
+					if (!$a['has_back_cover'] && $b['has_back_cover']) return 1;
 					return strtotime($b['render_date']) - strtotime($a['render_date']);
 				});
 
-				// MODIFICATION END
+				// 8. Manually create a new paginator instance with the processed data for the current page.
+				$paginatedBooks = new LengthAwarePaginator($books, $total, $perPage, $currentPage, [
+					'path' => LengthAwarePaginator::resolveCurrentPath(),
+				]);
 
-				return response()->json(['success' => true, 'books' => $books]);
+				// --- MODIFICATION END ---
+
+				return response()->json(['success' => true, 'books' => $paginatedBooks]);
 
 			} catch (\Exception $e) {
-				Log::error('Exception while querying BookCoverZone DB: ' . $e->getMessage());
+				Log::error('Exception while querying BookCoverZone DB: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
 				return response()->json(['success' => false, 'message' => 'An error occurred while fetching your books from the database.'], 500);
 			}
 		}
@@ -588,7 +624,7 @@
 				// 3. Optionally update user profile
 				if ($updateProfile) {
 					$profileUpdated = false;
-					// Update bio if provided
+					// Update bio if provided and it's not empty
 					if (!empty($bookData['author_bio'])) {
 						$user->bio = $bookData['author_bio'];
 						$profileUpdated = true;
