@@ -104,12 +104,12 @@
 					->where(function ($query) use ($pageKeys) {
 						foreach ($pageKeys as $key) {
 							$query->orWhere(function ($q) use ($key) {
-								$q->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), $key['coverfile'])
+								$q->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.frontcover'))"), $key['coverfile'])
 									->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"), $key['trim_size']);
 							});
 						}
 					})
-					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
+					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.frontcover'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
 					->pluck('max_id');
 
 				$latestBackRendersResults = DB::connection('mysql_bookcoverzone')
@@ -117,10 +117,11 @@
 					->whereIn('id', $latestBackHistoryIds)
 					->get();
 
+
 				$backRendersMap = [];
 				foreach ($latestBackRendersResults as $render) {
 					$fields = json_decode($render->fields, true);
-					$key = ($fields['coverfile'] ?? '') . ':' . ($fields['trim_size_name'] ?? '');
+					$key = ($fields['frontcover'] ?? '') . ':' . ($fields['trim_size_name'] ?? '');
 					$backRendersMap[$key] = $render;
 				}
 
