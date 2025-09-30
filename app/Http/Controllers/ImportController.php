@@ -148,21 +148,41 @@
 					$backRender = $backRendersMap[$lookupKey] ?? null;
 					$backFields = $backRender ? json_decode($backRender->fields, true) : null;
 
-					$title = 'Untitled';
+					// MODIFIED: Logic to handle multi-line titles, authors, subtitles, and hooks.
+					$titleParts = [];
+					$authorParts = [];
+					$subtitleParts = []; // NEW: Array for subtitle parts.
+					$hookParts = []; // NEW: Array for hook/tagline parts.
+
+					// NEW: Sort keys to ensure parts are assembled in the correct order (e.g., title_1, title_2).
+					uksort($frontFields, 'strnatcasecmp');
+
 					foreach ($frontFields as $key => $value) {
-						if (stripos($key, "layer_title") !== false && stripos($key, "text") !== false && !empty($value)) {
-							$title = $value;
-							break;
+						if (!empty($value)) {
+							if (stripos($key, "layer_title") !== false && stripos($key, "text") !== false) {
+								$titleParts[] = $value;
+							}
+							if (stripos($key, "layer_author") !== false && stripos($key, "text") !== false) {
+								$authorParts[] = $value;
+							}
+							if (stripos($key, "layer_subtitle") !== false && stripos($key, "text") !== false) {
+								$subtitleParts[] = $value;
+							}
+							if (stripos($key, "layer_hook") !== false && stripos($key, "text") !== false) {
+								$hookParts[] = $value;
+							}
 						}
 					}
 
-					$author = '';
-					foreach ($frontFields as $key => $value) {
-						if (stripos($key, "layer_author") !== false && stripos($key, "text") !== false && !empty($value)) {
-							$author = $value;
-							break;
-						}
+					$title = trim(implode(' ', $titleParts));
+					$author = trim(implode(' ', $authorParts));
+					$subtitle = trim(implode(' ', $subtitleParts)); // NEW: Assemble subtitle.
+					$hook = trim(implode(' ', $hookParts)); // NEW: Assemble hook.
+
+					if (empty($title)) {
+						$title = 'Untitled';
 					}
+					// END MODIFICATION
 
 					$books[] = [
 						'front_history_id' => (int)$frontRender->id,
@@ -171,14 +191,16 @@
 						'trim_size_name' => $frontFields['trim_size_display_name'] ?? 'Ebook',
 						'trim_size_value' => $trimSize,
 						'render_date' => $frontRender->create_time,
-						// MODIFIED: Use the map to check for purchase status and get the purchase date.
 						'is_purchased' => $purchasedCoversMap->has($coverfile),
 						'purchase_date' => $purchasedCoversMap->get($coverfile),
 						'has_back_cover' => !is_null($backRender),
 						'title' => htmlspecialchars($title),
+						'subtitle' => htmlspecialchars($subtitle), // NEW: Add subtitle to the response.
+						'hook' => htmlspecialchars($hook), // NEW: Add hook to the response.
 						'author' => htmlspecialchars($author),
 						'front_cover_url' => rtrim($userLayersUrl, '/') . "/{$userId}/{$coverfile}/{$frontFields['tempfilename']}-{$trimSize}.jpg",
-						'author_bio' => $backFields['biographytext'] ?? null,
+						'about_the_book' => isset($backFields['backcovertext']) ? strip_tags($backFields['backcovertext']) : null,
+						'author_bio' => isset($backFields['biographytext']) ? strip_tags($backFields['biographytext']) : null,
 						'author_photo_url' => ($backFields && ($backFields['use_picture'] ?? 'no') === 'yes') ? $authorPhotoUrl : null,
 					];
 				}
@@ -212,9 +234,13 @@
 		public function importBook(Request $request): JsonResponse
 		{
 			$user = $request->user();
+			// MODIFIED: Added author to validation rules.
 			$validated = $request->validate([
 				'bookData' => 'required|array',
 				'bookData.title' => 'required|string|max:255',
+				'bookData.subtitle' => 'nullable|string|max:255',
+				'bookData.hook' => 'nullable|string|max:1000',
+				'bookData.author' => 'nullable|string|max:255', // NEW: Validate author name.
 				'bookData.front_cover_url' => 'required|url',
 				'bookData.author_bio' => 'nullable|string|max:5000',
 				'bookData.author_photo_url' => 'nullable|url',
@@ -240,14 +266,23 @@
 				Book::create([
 					'user_id' => $user->id,
 					'title' => $bookData['title'],
+					'subtitle' => $bookData['subtitle'] ?? null,
+					'hook' => $bookData['hook'] ?? null,
 					'cover_image_path' => $coverImagePath,
 				]);
 
 				// 3. Optionally update user profile
 				if ($updateProfile) {
 					$profileUpdated = false;
+
+					// NEW: Update user's name if author name is provided.
+					if (!empty($bookData['author'])) {
+						$user->name = $bookData['author'];
+						$profileUpdated = true;
+					}
+
 					if (!empty($bookData['author_bio'])) {
-						$user->bio = $bookData['author_bio'];
+						$user->bio = strip_tags($bookData['author_bio']);
 						$profileUpdated = true;
 					}
 

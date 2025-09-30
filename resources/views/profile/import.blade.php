@@ -20,7 +20,7 @@
 				</div>
 				
 				{{-- Results Container --}}
-				<div id="books-container" class="mt-6 space-y-4">
+				<div id="books-container" class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 					{{-- Books will be dynamically inserted here --}}
 				</div>
 				
@@ -45,9 +45,10 @@
 				{{-- Details will be injected here --}}
 			</div>
 			<div class="form-control">
+				{{-- MODIFIED: Updated checkbox label to include "name". --}}
 				<label class="label cursor-pointer justify-start gap-2">
 					<input type="checkbox" id="update-profile-checkbox" checked="checked" class="checkbox" />
-					<span class="label-text">Update profile with author bio & photo?</span>
+					<span class="label-text">Update profile with author name, bio & photo?</span>
 				</label>
 			</div>
 			<div class="modal-action">
@@ -104,7 +105,7 @@
 					
 				} catch (error) {
 					console.error('Fetch error:', error);
-					booksContainer.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
+					booksContainer.innerHTML = `<div class="alert alert-error col-span-full">Error: ${error.message}</div>`;
 				} finally {
 					loadingIndicator.style.display = 'none';
 				}
@@ -112,7 +113,7 @@
 			
 			const renderBooks = (books) => {
 				if (books.length === 0) {
-					booksContainer.innerHTML = '<p class="text-center text-base-content/70 py-4">No books found.</p>';
+					booksContainer.innerHTML = '<p class="text-center text-base-content/70 py-4 col-span-full">No books found.</p>';
 					return;
 				}
 				
@@ -120,35 +121,43 @@
 				books.forEach(book => {
 					const escapedBookData = JSON.stringify(book).replace(/'/g, '&#39;');
 					
-					// MODIFIED: Added a block to display render and purchase dates.
+					// MODIFIED: Added display for subtitle and hook.
 					html += `
-                        <div class="card card-side bg-base-200 shadow-md flex-col sm:flex-row">
-                            <figure class="p-4 flex-shrink-0 sm:w-32 md:w-40 flex justify-center">
-                                <img src="${book.front_cover_url}" alt="${book.title} cover" class="w-28 h-42 object-cover rounded" />
+                        <div class="card bg-base-200 shadow-md flex flex-col">
+                            <figure class="p-4">
+                                <img src="${book.front_cover_url}" alt="${book.title} cover" class="w-full h-auto rounded" />
                             </figure>
-                            <div class="card-body">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <h3 class="card-title">${book.title}</h3>
-                                        <p class="text-sm opacity-80">${book.author || ''}</p>
-                                        
-                                        <!-- NEW: Added render and purchase dates -->
-                                        <div class="mt-2 text-xs opacity-70">
-                                            <p>Rendered: ${new Date(book.render_date).toLocaleDateString()}</p>
-                                            ${book.purchase_date ? `<p>Purchased: ${new Date(book.purchase_date).toLocaleDateString()}</p>` : ''}
-                                        </div>
-                                        
-                                        <div class="mt-2 space-x-2">
-                                            ${book.is_purchased ? '<div class="badge badge-success">Purchased</div>' : ''}
-                                            ${book.has_back_cover ? '<div class="badge badge-info">Has Back Cover</div>' : ''}
-                                        </div>
-                                    </div>
-                                    <div class="card-actions justify-end flex-shrink-0 ml-2">
-                                        <button class="btn btn-primary btn-sm import-btn" data-book='${escapedBookData}'>
-                                            Import
-                                        </button>
+                            <div class="card-body p-4 flex-grow">
+                                <h3 class="card-title text-base">${book.title}</h3>
+                                ${book.subtitle ? `<p class="text-sm opacity-80 -mt-1">${book.subtitle}</p>` : ''}
+                                <p class="text-sm opacity-80">${book.author || ''}</p>
+
+                                ${book.hook ? `<blockquote class="mt-2 text-sm italic border-l-2 border-base-300 pl-2">${book.hook}</blockquote>` : ''}
+
+                                <div class="mt-2 text-xs opacity-70">
+                                    <p>Rendered: ${new Date(book.render_date).toLocaleDateString()}</p>
+                                    ${book.purchase_date ? `<p>Purchased: ${new Date(book.purchase_date).toLocaleDateString()}</p>` : ''}
+                                </div>
+
+                                <div class="mt-2 space-x-2">
+                                    ${book.is_purchased ? '<div class="badge badge-success">Purchased</div>' : ''}
+                                    ${book.has_back_cover ? '<div class="badge badge-info">Has Back Cover</div>' : ''}
+                                </div>
+
+                                ${(book.author_photo_url || book.author_bio) ? `
+                                <div class="mt-4 pt-4 border-t border-base-300">
+                                    <h4 class="font-bold text-sm mb-2">Author Info</h4>
+                                    <div class="flex items-start gap-3">
+                                        ${book.author_photo_url ? `<img src="${book.author_photo_url}" class="w-12 h-12 rounded-full object-cover flex-shrink-0" />` : ''}
+                                        ${book.author_bio ? `<p class="text-xs opacity-80">${book.author_bio.substring(0, 150)}${book.author_bio.length > 150 ? '...' : ''}</p>` : ''}
                                     </div>
                                 </div>
+                                ` : ''}
+                            </div>
+                            <div class="card-actions justify-end p-4 pt-0">
+                                <button class="btn btn-primary btn-sm import-btn" data-book='${escapedBookData}'>
+                                    Import
+                                </button>
                             </div>
                         </div>
                     `;
@@ -177,6 +186,11 @@
 			const handleImportClick = (bookData) => {
 				currentImportData = bookData;
 				let detailsHtml = `<p>You are about to import the book: <strong>${bookData.title}</strong>.</p>`;
+				
+				// NEW: Add author name to the confirmation modal details.
+				if (bookData.author) {
+					detailsHtml += `<p class="text-sm mt-2">The author name <strong>${bookData.author}</strong> will be set as your profile name.</p>`;
+				}
 				if (bookData.author_bio) {
 					detailsHtml += `<p class="text-sm mt-2"><strong>Bio found:</strong> "${bookData.author_bio.substring(0, 100)}..."</p>`;
 				}
@@ -241,6 +255,7 @@
 			booksContainer.addEventListener('click', (e) => {
 				const button = e.target.closest('.import-btn');
 				if (button) {
+					console.log(button.dataset.book);
 					const bookData = JSON.parse(button.dataset.book);
 					handleImportClick(bookData);
 				}
