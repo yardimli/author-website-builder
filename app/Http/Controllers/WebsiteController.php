@@ -26,7 +26,7 @@
 			$websites = $user->websites()->orderBy('created_at', 'desc')->get();
 
 			// Check profile completeness
-			$profileComplete = !empty($user->name) && !empty($user->bio) && !empty($user->profile_photo_path);
+			$profileComplete = !empty($user->name) && !empty($user->bio); // && !empty($user->profile_photo_path);
 			$hasBooks = $user->books->count() > 0;
 			$prerequisitesMet = $profileComplete && $hasBooks;
 
@@ -64,7 +64,7 @@
 			$user = Auth::user()->load('books');
 
 			// --- Prerequisite Check (Server-side) ---
-			$profileComplete = !empty($user->name) && !empty($user->bio) && !empty($user->profile_photo_path);
+			$profileComplete = !empty($user->name) && !empty($user->bio); // && !empty($user->profile_photo_path);
 			$hasBooks = $user->books->count() > 0;
 			if (!$profileComplete || !$hasBooks) {
 				return Redirect::route('dashboard')->with('error', 'Please complete your profile (name, bio, photo) and add at least one book before creating a website.');

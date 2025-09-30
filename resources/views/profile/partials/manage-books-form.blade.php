@@ -57,14 +57,18 @@
 				</div>
 			</div>
 			
-			{{-- MODIFIED: Added Edit Modal for each book --}}
+			{{-- MODIFIED: Edit Modal --}}
 			<dialog id="edit_book_modal_{{ $book->id }}" class="modal">
-				<div class="modal-box w-11/12 max-w-5xl">
-					<form method="dialog">
-						<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-					</form>
-					<h3 class="font-bold text-lg">Editing: {{ $book->title }}</h3>
-					{{-- The form partial is reused for consistency --}}
+				{{-- MODIFIED: Removed default padding (p-0), added height and flex properties to prevent outer scrollbar. --}}
+				<div class="modal-box w-11/12 max-w-5xl h-[90vh] flex flex-col p-0">
+					{{-- MODIFIED: Header is now in a separate div with padding and is non-shrinking. --}}
+					<div class="p-6 pb-4 flex-shrink-0">
+						<form method="dialog">
+							<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+						</form>
+						<h3 class="font-bold text-lg">Editing: {{ $book->title }}</h3>
+					</div>
+					{{-- The form partial will fill the remaining space --}}
 					@include('profile.partials.book-form-fields', ['book' => $book, 'isNew' => false])
 				</div>
 			</dialog>
@@ -93,13 +97,18 @@
 		@endforelse
 	</div>
 	
-	{{-- MODIFIED: "Add Book" modal now uses the reusable form partial --}}
+	{{-- MODIFIED: "Add Book" modal --}}
 	<dialog id="add_book_modal" class="modal">
-		<div class="modal-box w-11/12 max-w-5xl">
-			<form method="dialog">
-				<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-			</form>
-			<h3 class="font-bold text-lg">Add a New Book</h3>
+		{{-- MODIFIED: Removed default padding (p-0), added height and flex properties to prevent outer scrollbar. --}}
+		<div class="modal-box w-11/12 max-w-5xl h-[90vh] flex flex-col p-0">
+			{{-- MODIFIED: Header is now in a separate div with padding and is non-shrinking. --}}
+			<div class="p-6 pb-4 flex-shrink-0">
+				<form method="dialog">
+					<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+				</form>
+				<h3 class="font-bold text-lg">Add a New Book</h3>
+			</div>
+			{{-- The form partial will fill the remaining space --}}
 			@include('profile.partials.book-form-fields', ['book' => null, 'isNew' => true])
 		</div>
 	</dialog>

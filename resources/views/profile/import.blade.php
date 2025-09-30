@@ -60,6 +60,21 @@
 		</div>
 		<form method="dialog" class="modal-backdrop"><button>close</button></form>
 	</dialog>
+	
+	{{-- NEW: Import Success Modal --}}
+	<dialog id="import_success_modal" class="modal">
+		<div class="modal-box">
+			<h3 class="font-bold text-lg text-success">Import Successful!</h3>
+			<p class="py-4">The book has been added to your library.</p>
+			<div class="modal-action">
+				<form method="dialog">
+					<button class="btn btn-ghost">Continue Importing</button>
+				</form>
+				<a href="{{ route('dashboard') }}" class="btn btn-primary">Go to Dashboard</a>
+			</div>
+		</div>
+		<form method="dialog" class="modal-backdrop"><button>close</button></form>
+	</dialog>
 @endsection
 
 @push('scripts')
@@ -73,6 +88,7 @@
 			const confirmImportBtn = document.getElementById('confirm-import-btn');
 			const importDetailsContainer = document.getElementById('import-details');
 			const updateProfileCheckbox = document.getElementById('update-profile-checkbox');
+			const importSuccessModal = document.getElementById('import_success_modal'); // NEW: Get success modal
 			
 			const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 			let debounceTimer;
@@ -228,7 +244,8 @@
 					}
 					
 					importModal.close();
-					alert('Book imported successfully!');
+					// MODIFIED: Show the success modal instead of an alert.
+					importSuccessModal.showModal();
 					
 				} catch (error) {
 					console.error('Import error:', error);
