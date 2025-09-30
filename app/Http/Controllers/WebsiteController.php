@@ -261,6 +261,20 @@ CSS;
 			$this->authorize('view', $website);
 			$website->load('chatMessages');
 
+			// MODIFIED: START - Sanitize historical chat messages before sending them to the view.
+			// This iterates through the loaded messages and removes any HTML tags from the content,
+			// preventing layout issues from improperly formatted historical data.
+			$website->chatMessages->transform(function ($message) {
+				$finalContent = $message->content;
+				$finalContent = str_replace(['<br>', '<br/>', '<br />'], "\n", $finalContent);
+				$finalContent = strip_tags($finalContent);
+				$finalContent = str_replace("\n", '<br>', $finalContent); // Normalize line endings to just \n
+
+				$message->content = $finalContent;
+				return $message;
+			});
+			// MODIFIED: END
+
 			Log::info("Showing website with ID: {$website->id} for user ID: " . Auth::id());
 			Log::info('Initial Prompt:', ['prompt' => session('initial_prompt')]);
 
