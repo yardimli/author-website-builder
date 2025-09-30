@@ -55,7 +55,7 @@
 			$this->authorize('update', $website);
 
 			$validated = $request->validate([
-				'message' => 'required|string|max:4000',
+				'message' => 'required|string|max:10000',
 			]);
 
 			// MODIFIED: The entire process is wrapped in a single transaction.

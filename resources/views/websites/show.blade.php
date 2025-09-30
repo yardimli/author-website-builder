@@ -134,6 +134,8 @@
 			let selectedFile = null;
 			let isEditing = false;
 			let isSaving = false;
+			let lastUserMessage = ''; // NEW: Store the last user message that resulted in an error.
+			let lastResponseWasError = false; // NEW: Flag to check if the last assistant response was an error.
 			
 			// --- ICON SVGs ---
 			const icons = {
@@ -176,9 +178,13 @@
 			
 			// MODIFIED: This function now provides instant UI feedback and manages the loading state.
 			async function sendMessage(message) {
-				if (!message.trim()) return;
+				if (!message.trim()) {
+					return;
+				}
 				
-				// MODIFIED: Add user message to UI right away and clear the input.
+				// A new message is being sent, so the previous error state is no longer relevant for resending.
+				lastResponseWasError = false;
+				
 				addMessageToUI('user', message);
 				chatInput.value = '';
 				
@@ -208,7 +214,10 @@
 					}
 				} catch (error) {
 					console.error('Chat error:', error);
-					addMessageToUI('assistant', 'Sorry, an error occurred: ' + error.message);
+					// MODIFIED: Set the error flag, store the failed message, and add a more helpful error message.
+					lastResponseWasError = true;
+					lastUserMessage = message; // Store the message that failed.
+					addMessageToUI('assistant', 'Sorry, an error occurred: ' + error.message + '<br><br><small class="opacity-70">You can try sending your message again by clicking the send button.</small>');
 				} finally {
 					// MODIFIED: Re-enable the input and restore the original button icon.
 					chatInput.disabled = false;
@@ -375,14 +384,25 @@
 			
 			// --- EVENT LISTENERS ---
 			
-			chatForm.addEventListener('submit', (e) => { e.preventDefault(); sendMessage(chatInput.value); });
+			// MODIFIED: The submit handler now decides whether to resend a failed message or send a new one.
+			chatForm.addEventListener('submit', (e) => {
+				e.preventDefault();
+				const currentMessage = chatInput.value.trim();
+				
+				// If the input is empty and the last response was an error, resend the last message.
+				if (currentMessage === '' && lastResponseWasError) {
+					sendMessage(lastUserMessage);
+				} else {
+					sendMessage(currentMessage);
+				}
+			});
 			
-			// NEW: Listen for keydown events on the chat input.
+			// MODIFIED: The keydown listener now triggers the submit event to avoid duplicating logic.
 			chatInput.addEventListener('keydown', (e) => {
 				// If the user presses Enter without holding Ctrl, submit the form.
 				if (e.key === 'Enter' && !e.ctrlKey) {
 					e.preventDefault(); // Prevent the default action (new line).
-					chatForm.dispatchEvent(new Event('submit'));
+					chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
 				}
 				// If Ctrl+Enter is pressed, the default action (new line) is allowed.
 			});
