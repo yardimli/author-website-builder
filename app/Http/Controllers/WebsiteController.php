@@ -126,9 +126,15 @@
 			if ($featuredBooks->isNotEmpty()) {
 				$initialUserPrompt .= "Other Books I've written and want to show on the site:\n";
 				foreach ($featuredBooks as $book) {
-					$initialUserPrompt .= "- Title: " . $book->title . ($book->subtitle ? " (" . $book->subtitle . ")" : "") . "\n";
-					if ($book->cover_image_url) $initialUserPrompt .= "  Cover Image URL: " . $book->cover_image_url . "\n";
-					if ($book->amazon_link) $initialUserPrompt .= "  Amazon Link: " . $book->amazon_link . "\n";
+					$initialUserPrompt .= "Title: " . $book->title . "\n";
+					if ($book->subtitle) $initialUserPrompt .= "Subtitle: " . $book->subtitle . "\n";
+					if ($book->hook) $initialUserPrompt .= "Hook/Tagline: " . $book->hook . "\n";
+					if ($book->about) $initialUserPrompt .= "About: " . $book->about . "\n";
+					if ($book->cover_image_url) $initialUserPrompt .= "Cover Image URL: " . $book->cover_image_url . "\n";
+					if ($book->amazon_link) $initialUserPrompt .= "Amazon Link: " . $book->amazon_link . "\n";
+					if ($book->other_link) $initialUserPrompt .= "Other Link: " . $book->other_link . "\n";
+					$initialUserPrompt .= "\n";
+					$initialUserPrompt .= "\n";
 				}
 				$initialUserPrompt .= "\n";
 			}

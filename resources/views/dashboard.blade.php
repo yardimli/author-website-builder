@@ -77,8 +77,10 @@
 										<label class="label" for="primary_book_id">
 											<span class="label-text">Primary Book *</span>
 										</label>
-										<select name="primary_book_id" class="select select-bordered w-full" required>
-											<option disabled selected>Select the main book to feature</option>
+										{{-- MODIFIED: Added id for JS targeting --}}
+										<select name="primary_book_id" id="primary_book_select" class="select select-bordered w-full" required>
+											{{-- MODIFIED: Added empty value for better validation handling --}}
+											<option disabled selected value="">Select the main book to feature</option>
 											@foreach($userBooks as $book)
 												<option value="{{ $book->id }}" @selected(old('primary_book_id') == $book->id)>
 													{{ $book->title }} {{ $book->series_name ? "({$book->series_name} #{$book->series_number})" : '' }}
@@ -97,7 +99,8 @@
 												@foreach($userBooks as $book)
 													<div class="form-control">
 														<label class="label cursor-pointer justify-start gap-4">
-															<input type="checkbox" name="featured_book_ids[]" value="{{ $book->id }}" class="checkbox" />
+															{{-- MODIFIED: Added class for JS targeting and improved old() helper --}}
+															<input type="checkbox" name="featured_book_ids[]" value="{{ $book->id }}" class="checkbox featured-book-checkbox" @checked(is_array(old('featured_book_ids')) && in_array($book->id, old('featured_book_ids')))>
 															<span class="label-text">{{ $book->title }}</span>
 														</label>
 													</div>
@@ -181,7 +184,7 @@
 	</div>
 @endsection
 
-{{-- NEW: Add JavaScript for real-time slug validation --}}
+{{-- MODIFIED: Added new script for primary/featured book logic --}}
 @push('scripts')
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
@@ -272,6 +275,38 @@
 					});
 				}
 			});
+			
+			// --- NEW: Logic to disable featured book checkbox if it's the primary book ---
+			const primaryBookSelect = document.getElementById('primary_book_select');
+			const featuredBookCheckboxes = document.querySelectorAll('.featured-book-checkbox');
+			
+			if (primaryBookSelect && featuredBookCheckboxes.length > 0) {
+				const syncFeaturedBooks = () => {
+					const selectedPrimaryId = primaryBookSelect.value;
+					
+					featuredBookCheckboxes.forEach(checkbox => {
+						const parentLabel = checkbox.closest('label');
+						if (checkbox.value === selectedPrimaryId) {
+							checkbox.checked = false;
+							checkbox.disabled = true;
+							if (parentLabel) {
+								parentLabel.classList.add('opacity-50', 'cursor-not-allowed');
+							}
+						} else {
+							checkbox.disabled = false;
+							if (parentLabel) {
+								parentLabel.classList.remove('opacity-50', 'cursor-not-allowed');
+							}
+						}
+					});
+				};
+				
+				// Run on initial load to handle validation errors and old input
+				syncFeaturedBooks();
+				
+				// Run whenever the primary book selection changes
+				primaryBookSelect.addEventListener('change', syncFeaturedBooks);
+			}
 		});
 	</script>
 @endpush
