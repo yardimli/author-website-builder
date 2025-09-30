@@ -44,17 +44,19 @@
 			$perPage = 15;
 
 			try {
-				// 1. Get all purchased cover filenames for the user for quick lookup.
-				$purchasedCovers = DB::connection('mysql_bookcoverzone')
+				// MODIFIED: Fetch purchased cover filenames and their order dates into a map for quick lookup.
+				$purchasedCoversResult = DB::connection('mysql_bookcoverzone')
 					->table('shoppingcarts as sc')
 					->join('orders as o', 'sc.order_id', '=', 'o.id')
 					->join('products as p', 'sc.product_id', '=', 'p.id')
 					->where('sc.user_id', $userId)
 					->where('o.status', 'success')
 					->where('p.type', 'bookcover')
-					->distinct()
-					->pluck('sc.photoshop_filename')
-					->all();
+					->select('sc.photoshop_filename', 'o.created')
+					->distinct('sc.photoshop_filename')
+					->get();
+
+				$purchasedCoversMap = $purchasedCoversResult->pluck('created', 'photoshop_filename');
 
 				// 2. Base query for latest front renders, with search.
 				$latestFrontHistorySubquery = DB::connection('mysql_bookcoverzone')
@@ -117,7 +119,6 @@
 					->whereIn('id', $latestBackHistoryIds)
 					->get();
 
-
 				$backRendersMap = [];
 				foreach ($latestBackRendersResults as $render) {
 					$fields = json_decode($render->fields, true);
@@ -170,7 +171,9 @@
 						'trim_size_name' => $frontFields['trim_size_display_name'] ?? 'Ebook',
 						'trim_size_value' => $trimSize,
 						'render_date' => $frontRender->create_time,
-						'is_purchased' => in_array($coverfile, $purchasedCovers),
+						// MODIFIED: Use the map to check for purchase status and get the purchase date.
+						'is_purchased' => $purchasedCoversMap->has($coverfile),
+						'purchase_date' => $purchasedCoversMap->get($coverfile),
 						'has_back_cover' => !is_null($backRender),
 						'title' => htmlspecialchars($title),
 						'author' => htmlspecialchars($author),
@@ -180,9 +183,7 @@
 					];
 				}
 
-				// MODIFIED: Sort results to prioritize books with back covers.
-				// Books with a back cover will appear first. For books with the same status,
-				// the newest renders will be listed first.
+				// 7. Sort results to prioritize books with back covers.
 				usort($books, function ($a, $b) {
 					if ($a['has_back_cover'] && !$b['has_back_cover']) {
 						return -1;
