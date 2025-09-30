@@ -297,6 +297,12 @@
 					$finalContent = $aiTextResponse ?: 'Okay, I have made the requested changes.';
 				}
 
+				// MODIFIED: START - Strip HTML tags from the final content to prevent formatting issues in the chat UI.
+				// This ensures that only plain text and Markdown-like text are passed to the frontend,
+				// avoiding potential layout breaks from raw HTML in the chat bubble.
+				$finalContent = strip_tags($finalContent);
+				// MODIFIED: END
+
 				$assistantMessage = $website->chatMessages()->create([
 					'role' => 'assistant',
 					'content' => $finalContent,
