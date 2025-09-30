@@ -19,7 +19,7 @@
 			</div>
 			{{-- Chat Input Form --}}
 			<form id="chat-form" class="p-3 border-t border-base-300 flex items-end gap-2 bg-base-100">
-				<textarea id="chat-input" placeholder="Ask AuthorWebsiteBuilder to build..." class="textarea textarea-bordered flex-grow resize-none text-sm" rows="1"></textarea>
+				<textarea id="chat-input" placeholder="Ask Author Website Builder to build..." class="textarea textarea-bordered flex-grow resize-none text-sm" rows="1"></textarea>
 				<button type="submit" id="chat-submit-btn" class="btn btn-primary btn-square">
 					{{-- MODIFIED: The button icon is now managed by JavaScript to show a spinner. --}}
 				</button>
