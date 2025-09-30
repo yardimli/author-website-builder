@@ -58,7 +58,7 @@
 				'message' => 'required|string|max:10000',
 			]);
 
-			// MODIFIED: The entire process is wrapped in a single transaction.
+			// The entire process is wrapped in a single transaction.
 			// This ensures that if a security check fails, even the user message can be rolled back
 			// if we decide to, though here we commit it along with the error message.
 			DB::beginTransaction();
@@ -92,7 +92,55 @@
 					return $path . "\n" . trim($file->content);
 				})->implode("\n\n");
 
-				$llmUserInput = $fileContext . "\n\n---\n\nUser Request:\n" . $validated['message'];
+				// --- MODIFIED: START ---
+				// Add author bio, book details, and image URLs as a reference for every message.
+				// This provides the LLM with consistent, rich context about the author's work,
+				// while instructing it to prioritize the user's immediate request.
+				$user = $website->user()->with('books')->first();
+				$authorContext = "--- Author & Book Reference (for context only, user's request takes precedence) ---\n\n";
+				$authorContext .= "Author Name: " . ($user->name ?? 'N/A') . "\n";
+				$authorContext .= "Author Bio:\n" . ($user->bio ?? 'N/A') . "\n";
+				// MODIFIED: Include the author's profile photo URL if it exists.
+				if ($user->profile_photo_url) {
+					$authorContext .= "Author Photo URL: " . $user->profile_photo_url . "\n";
+				}
+				$authorContext .= "\n";
+
+
+				if ($user && $user->books->isNotEmpty()) {
+					$authorContext .= "Books:\n";
+					foreach ($user->books as $book) {
+						// MODIFIED: Check if the current book is the website's primary book.
+						$isPrimary = ($book->id === $website->primary_book_id);
+						$authorContext .= "- Title: " . $book->title . ($isPrimary ? " (Primary Book)" : "") . "\n";
+
+						if ($book->subtitle) {
+							$authorContext .= "  Subtitle: " . $book->subtitle . "\n";
+						}
+						// MODIFIED: Include the book's cover image URL if it exists.
+						if ($book->cover_image_url) {
+							$authorContext .= "  Cover Image URL: " . $book->cover_image_url . "\n";
+						}
+						if ($book->hook) {
+							$authorContext .= "  Hook: " . $book->hook . "\n";
+						}
+						if ($book->about) {
+							$authorContext .= "  About: " . $book->about . "\n";
+						}
+						if ($book->amazon_link) {
+							$authorContext .= "  Amazon Link: " . $book->amazon_link . "\n";
+						}
+						if ($book->other_link) {
+							$authorContext .= "  Other Link: " . $book->other_link . "\n";
+						}
+						$authorContext .= "\n"; // Add a blank line for separation between books.
+					}
+				}
+				$authorContext .= "--- End of Reference ---\n\n";
+
+				$llmUserInput = $authorContext . $fileContext . "\n\n---\n\nUser Request:\n" . $validated['message'];
+				// --- MODIFIED: END ---
+
 				$chat_messages = [['role' => 'user', 'content' => $llmUserInput]];
 				$llmModel = $website->llm_model ?? env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025');
 
@@ -115,7 +163,7 @@
 					], 500);
 				}
 
-				// --- MODIFIED: PRE-PROCESSING AND VALIDATION STAGE ---
+				// --- PRE-PROCESSING AND VALIDATION STAGE ---
 				$rawLlmOutput = $llmResponse['content'];
 				$pendingOperations = [];
 				$securityViolationMessage = null;
@@ -155,7 +203,7 @@
 					}
 				}
 
-				// --- MODIFIED: CONDITIONAL EXECUTION STAGE ---
+				// --- CONDITIONAL EXECUTION STAGE ---
 				$filesUpdated = false;
 				if ($securityViolationMessage === null) {
 					// Step 6: If validation passed, apply all pending changes
@@ -238,7 +286,7 @@
 
 				$aiTextResponse = trim(preg_replace('/^\s*$/m', '', $aiTextResponse));
 
-				// MODIFIED: Logic to construct the final assistant message is now more robust.
+				// Logic to construct the final assistant message is now more robust.
 				$finalContent = '';
 				if ($securityViolationMessage !== null) {
 					// If a security block occurred, create a specific message.
