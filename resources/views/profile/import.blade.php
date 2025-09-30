@@ -77,6 +77,7 @@
 			const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 			let debounceTimer;
 			let currentImportData = null;
+			let pageBooks = []; // NEW: Array to hold book data for the current page.
 			
 			const fetchBooks = async (url = "{{ route('profile.import.fetch') }}") => {
 				loadingIndicator.style.display = 'block';
@@ -100,7 +101,8 @@
 					}
 					
 					const data = await response.json();
-					renderBooks(data.books.data);
+					pageBooks = data.books.data; // NEW: Store fetched books in the array.
+					renderBooks(pageBooks); // MODIFIED: Pass the array to renderBooks.
 					renderPagination(data.books);
 					
 				} catch (error) {
@@ -118,10 +120,9 @@
 				}
 				
 				let html = '';
-				books.forEach(book => {
-					const escapedBookData = JSON.stringify(book).replace(/'/g, '&#39;');
-					
-					// MODIFIED: Added display for subtitle and hook.
+				// MODIFIED: Loop with an index to reference the pageBooks array.
+				books.forEach((book, index) => {
+					// MODIFIED: The button now uses `data-book-index` instead of storing the whole object.
 					html += `
                         <div class="card bg-base-200 shadow-md flex flex-col">
                             <figure class="p-4">
@@ -155,7 +156,7 @@
                                 ` : ''}
                             </div>
                             <div class="card-actions justify-end p-4 pt-0">
-                                <button class="btn btn-primary btn-sm import-btn" data-book='${escapedBookData}'>
+                                <button class="btn btn-primary btn-sm import-btn" data-book-index="${index}">
                                     Import
                                 </button>
                             </div>
@@ -255,9 +256,15 @@
 			booksContainer.addEventListener('click', (e) => {
 				const button = e.target.closest('.import-btn');
 				if (button) {
-					console.log(button.dataset.book);
-					const bookData = JSON.parse(button.dataset.book);
-					handleImportClick(bookData);
+					// MODIFIED: Retrieve the book data from the `pageBooks` array using the index.
+					const bookIndex = button.dataset.bookIndex;
+					const bookData = pageBooks[bookIndex];
+					if (bookData) {
+						handleImportClick(bookData);
+					} else {
+						console.error('Could not find book data for index:', bookIndex);
+						alert('An error occurred. Could not find book data.');
+					}
 				}
 			});
 			

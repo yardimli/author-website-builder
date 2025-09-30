@@ -241,6 +241,7 @@
 				'bookData.subtitle' => 'nullable|string|max:255',
 				'bookData.hook' => 'nullable|string|max:1000',
 				'bookData.author' => 'nullable|string|max:255', // NEW: Validate author name.
+				'bookData.about_the_book' => 'nullable|string|max:5000',
 				'bookData.front_cover_url' => 'required|url',
 				'bookData.author_bio' => 'nullable|string|max:5000',
 				'bookData.author_photo_url' => 'nullable|url',
@@ -263,11 +264,13 @@
 				}
 
 				// 2. Create the book record
+				// MODIFIED: Decode HTML entities before saving to the database to prevent storing encoded characters.
 				Book::create([
 					'user_id' => $user->id,
-					'title' => $bookData['title'],
-					'subtitle' => $bookData['subtitle'] ?? null,
-					'hook' => $bookData['hook'] ?? null,
+					'title' => htmlspecialchars_decode($bookData['title']),
+					'subtitle' => isset($bookData['subtitle']) ? htmlspecialchars_decode($bookData['subtitle']) : null,
+					'hook' => isset($bookData['hook']) ? htmlspecialchars_decode($bookData['hook']) : null,
+					'about' => isset($bookData['about_the_book']) ? htmlspecialchars_decode($bookData['about_the_book']) : null,
 					'cover_image_path' => $coverImagePath,
 				]);
 
@@ -275,9 +278,9 @@
 				if ($updateProfile) {
 					$profileUpdated = false;
 
-					// NEW: Update user's name if author name is provided.
+					// MODIFIED: Decode author name before updating the user profile.
 					if (!empty($bookData['author'])) {
-						$user->name = $bookData['author'];
+						$user->name = htmlspecialchars_decode($bookData['author']);
 						$profileUpdated = true;
 					}
 
