@@ -6,32 +6,26 @@
 	use App\Http\Requests\ProfileUpdateRequest;
 	use App\Models\Book;
 	use Illuminate\Contracts\Auth\MustVerifyEmail;
-	use Illuminate\Http\JsonResponse;
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
-	use Illuminate\Support\Facades\DB; // MODIFIED: Import DB facade
-	use Illuminate\Support\Facades\Http;
+	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Support\Facades\Storage;
-	use Illuminate\Support\Facades\Validator;
-	use Illuminate\Validation\Rule;
-	use Illuminate\Support\Str;
-	use Illuminate\Support\Facades\Log;
 	use Illuminate\View\View;
-	// NEW: Import Paginator for manual pagination
-	use Illuminate\Pagination\LengthAwarePaginator;
 
+	/**
+	 * MODIFIED: This controller now handles only the user's core profile,
+	 * security, and account management. Book and import functionalities
+	 * have been moved to their own dedicated controllers.
+	 */
 	class ProfileController extends Controller
 	{
 		/**
-		 * Display the user's profile form.
-		 * MODIFIED: This method now returns a Blade View for just the core profile info.
+		 * Display the user's core profile form.
 		 */
 		public function edit(Request $request): View
 		{
-			// MODIFIED: Render the profile.edit Blade view for the main profile page.
-			// Book data is no longer needed here and is handled by editBooks().
 			return view('profile.edit', [
 				'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
 				'status' => session('status'),
@@ -40,19 +34,7 @@
 		}
 
 		/**
-		 * NEW: Display the user's book management page.
-		 */
-		public function editBooks(Request $request): View
-		{
-			$user = $request->user()->load('books');
-			return view('profile.books', [
-				'user' => $user,
-				'books' => $user->books,
-			]);
-		}
-
-		/**
-		 * NEW: Display the user's security settings page.
+		 * Display the user's security settings page.
 		 */
 		public function editSecurity(Request $request): View
 		{
@@ -62,7 +44,7 @@
 		}
 
 		/**
-		 * NEW: Display the user's account management page.
+		 * Display the user's account management page.
 		 */
 		public function editAccount(Request $request): View
 		{
@@ -71,10 +53,8 @@
 			]);
 		}
 
-
 		/**
 		 * Update the user's core profile information (name, email).
-		 * NOTE: No changes needed here, RedirectResponse is compatible with Blade.
 		 */
 		public function update(ProfileUpdateRequest $request): RedirectResponse
 		{
@@ -91,7 +71,6 @@
 
 		/**
 		 * Update the user's profile photo.
-		 * NOTE: No changes needed here.
 		 */
 		public function updateProfilePhoto(Request $request): RedirectResponse
 		{
@@ -119,7 +98,6 @@
 
 		/**
 		 * Delete the user's profile photo.
-		 * NOTE: No changes needed here.
 		 */
 		public function deleteProfilePhoto(Request $request): RedirectResponse
 		{
@@ -133,15 +111,13 @@
 			return Redirect::route('profile.edit')->with('status', 'profile-photo-deleted');
 		}
 
-
 		/**
 		 * Update the user's bio.
-		 * NOTE: No changes needed here.
 		 */
 		public function updateBio(Request $request): RedirectResponse
 		{
 			$request->validate([
-				'bio' => ['nullable', 'string', 'max:5000'], // Adjust max length as needed
+				'bio' => ['nullable', 'string', 'max:5000'],
 			]);
 
 			$request->user()->forceFill([
@@ -153,39 +129,44 @@
 
 		/**
 		 * Generate AI placeholder for the bio.
-		 * MODIFIED: This method now uses the user's name and book data for a richer context.
 		 */
 		public function generateBioPlaceholder(Request $request)
 		{
 			$request->validate([
-				'current_bio' => ['nullable', 'string', 'max:3000'], // Limit input to AI
+				'current_bio' => ['nullable', 'string', 'max:3000'],
 			]);
 
 			$currentBio = $request->input('current_bio', '');
-			$user = $request->user()->load('books'); // Eager load books
+			$user = $request->user()->load('books');
 
-			// --- MODIFIED: Build a detailed context string from user's books ---
+			// Build a detailed context string from user's books
 			$bookContext = "Here is a list of my books:\n";
 			if ($user->books->isEmpty()) {
 				$bookContext .= "- I have not added any books yet.\n";
 			} else {
 				foreach ($user->books as $book) {
 					$bookContext .= "- Title: " . $book->title . "\n";
-					if ($book->subtitle) $bookContext .= "  Subtitle: " . $book->subtitle . "\n";
-					if ($book->series_name) $bookContext .= "  Series: " . $book->series_name . " #" . $book->series_number . "\n";
-					if ($book->hook) $bookContext .= "  Hook: " . $book->hook . "\n";
-					if ($book->about) $bookContext .= "  About: " . $book->about . "\n\n";
+					if ($book->subtitle) {
+						$bookContext .= "  Subtitle: " . $book->subtitle . "\n";
+					}
+					if ($book->series_name) {
+						$bookContext .= "  Series: " . $book->series_name . " #" . $book->series_number . "\n";
+					}
+					if ($book->hook) {
+						$bookContext .= "  Hook: " . $book->hook . "\n";
+					}
+					if ($book->about) {
+						$bookContext .= "  About: " . $book->about . "\n\n";
+					}
 				}
 			}
 
-			// --- MODIFIED: Updated prompts for better context ---
+			// Updated prompts for better context
 			$system_prompt = "You are an assistant helping an author write their website bio. Your task is to generate a compelling, fictional author bio of about 2-3 short paragraphs. Use the author's name and the list of their books to infer a plausible genre, style, and persona. The bio should sound authentic and engaging. Focus on common author bio elements: hint at their genre, common themes in their work, a touch of personality or a fictional background, and a call to action (e.g., 'explore their books').";
-
 			$user_message = "My name is " . $user->name . ".\n\n" . $bookContext . "\n\nHere's the current draft of my bio (it might be empty):\n---\n" . $currentBio . "\n---\n\nPlease generate a new, creative placeholder bio for me based on my name and book details.";
 
-
 			$chat_messages = [['role' => 'user', 'content' => $user_message]];
-			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting if available
+			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct');
 
 			Log::info("Requesting AI bio generation for user {$user->id}");
 			$llmResponse = LlmHelper::call_llm($llmModel, $system_prompt, $chat_messages);
@@ -200,471 +181,7 @@
 		}
 
 		/**
-		 * NOTE: No changes needed for AI helper methods.
-		 */
-		public function generateBookHookPlaceholder(Request $request)
-		{
-			$validated = $request->validate([
-				'title' => ['required', 'string', 'max:255'],
-				'subtitle' => ['nullable', 'string', 'max:255'],
-			]);
-
-			$title = $validated['title'];
-			$subtitle = $validated['subtitle'] ?? '';
-
-			$system_prompt = "You are an assistant helping an author write marketing copy for their book. Generate a short, compelling hook or tagline (1-2 sentences max) suitable for a book back cover or online description.";
-			$user_message = "Generate a hook/tagline for a book titled: \"{$title}\"";
-			if ($subtitle) {
-				$user_message .= "\nSubtitle: \"{$subtitle}\"";
-			}
-
-			return $this->callBookAiGenerator($request->user(), $system_prompt, $user_message, 'Hook');
-		}
-
-
-		public function generateBookAboutPlaceholder(Request $request)
-		{
-			$validated = $request->validate([
-				'title' => ['required', 'string', 'max:255'],
-				'subtitle' => ['nullable', 'string', 'max:255'],
-			]);
-
-			$title = $validated['title'];
-			$subtitle = $validated['subtitle'] ?? '';
-
-			$system_prompt = "You are an assistant helping an author write marketing copy for their book. Generate an engaging 'About the Book' section (around 2-3 short paragraphs) suitable for a book back cover or online description. Focus on introducing the premise, main conflict/characters, and hinting at the stakes or themes, without giving away major spoilers.";
-			$user_message = "Generate an 'About the Book' section for a book titled: \"{$title}\"";
-			if ($subtitle) {
-				$user_message .= "\nSubtitle: \"{$subtitle}\"";
-			}
-
-			return $this->callBookAiGenerator($request->user(), $system_prompt, $user_message, 'About');
-		}
-
-		private function callBookAiGenerator($user, $system_prompt, $user_message, $fieldType)
-		{
-			$chat_messages = [['role' => 'user', 'content' => $user_message]];
-			$llmModel = env('DEFAULT_LLM', 'mistralai/mixtral-8x7b-instruct'); // Or use a user-specific setting
-
-			Log::info("Requesting AI book {$fieldType} generation for user {$user->id}");
-			$llmResponse = LlmHelper::call_llm($llmModel, $system_prompt, $chat_messages);
-
-			if (str_starts_with($llmResponse['content'], 'Error:')) {
-				Log::error("AI Book {$fieldType} Generation Error for user {$user->id}: " . $llmResponse['content']);
-				return response()->json(['error' => "Failed to generate {$fieldType}. " . $llmResponse['content']], 500);
-			}
-
-			Log::info("AI book {$fieldType} generated successfully for user {$user->id}");
-			return response()->json(['generated_text' => trim($llmResponse['content'])]);
-		}
-
-
-
-		// --- BOOK MANAGEMENT ---
-
-		/**
-		 * Store a newly created book in storage.
-		 */
-		public function storeBook(Request $request): RedirectResponse
-		{
-			$validated = $request->validate([
-				'title' => ['required', 'string', 'max:255'],
-				'subtitle' => ['nullable', 'string', 'max:255'],
-				'hook' => ['nullable', 'string', 'max:1000'],
-				'about' => ['nullable', 'string', 'max:5000'],
-				'extract' => ['nullable', 'string', 'max:65000'], // Long text
-				'amazon_link' => ['nullable', 'url', 'max:500'],
-				'other_link' => ['nullable', 'url', 'max:500'],
-				'published_at' => ['nullable', 'date'],
-				'is_series' => ['boolean'], // Use boolean for checkbox
-				'series_name' => ['nullable', 'required_if:is_series,true', 'string', 'max:255'],
-				'series_number' => ['nullable', 'required_if:is_series,true', 'integer', 'min:1'],
-				'cover_image' => ['nullable', 'image', 'max:2048'], // Max 2MB
-			]);
-
-			$user = $request->user();
-			$bookData = $validated;
-			$bookData['user_id'] = $user->id;
-
-			// Handle cover image upload
-			if ($request->hasFile('cover_image')) {
-				$path = $request->file('cover_image')->store('book-covers', 'public');
-				$bookData['cover_image_path'] = $path;
-			}
-
-			// Unset the helper boolean field if it exists
-			unset($bookData['is_series']);
-			// Clear series info if not part of a series
-			if (!($validated['is_series'] ?? false)) {
-				$bookData['series_name'] = null;
-				$bookData['series_number'] = null;
-			}
-
-
-			Book::create($bookData);
-
-			// MODIFIED: Redirect back to the books management page.
-			return Redirect::route('profile.books.edit')->with('status', 'book-created');
-		}
-
-		/**
-		 * Update the specified book in storage.
-		 */
-		public function updateBook(Request $request, Book $book): RedirectResponse
-		{
-			// Authorize: Ensure the user owns this book
-			if ($request->user()->id !== $book->user_id) {
-				abort(403);
-			}
-
-			$validated = $request->validate([
-				'title' => ['required', 'string', 'max:255'],
-				'subtitle' => ['nullable', 'string', 'max:255'],
-				'hook' => ['nullable', 'string', 'max:1000'],
-				'about' => ['nullable', 'string', 'max:5000'],
-				'extract' => ['nullable', 'string', 'max:65000'],
-				'amazon_link' => ['nullable', 'url', 'max:500'],
-				'other_link' => ['nullable', 'url', 'max:500'],
-				'published_at' => ['nullable', 'date'],
-				'is_series' => ['boolean'],
-				'series_name' => ['nullable', 'required_if:is_series,true', 'string', 'max:255'],
-				'series_number' => ['nullable', 'required_if:is_series,true', 'integer', 'min:1'],
-				'cover_image' => ['nullable', 'image', 'max:2048'], // For updating cover
-			]);
-
-			$bookData = $validated;
-
-			// Handle cover image update
-			if ($request->hasFile('cover_image')) {
-				// Delete old cover if exists
-				if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
-					Storage::disk('public')->delete($book->cover_image_path);
-				}
-				// Store new cover
-				$path = $request->file('cover_image')->store('book-covers', 'public');
-				$bookData['cover_image_path'] = $path;
-			} elseif ($request->has('remove_cover_image') && $request->input('remove_cover_image')) {
-				// Optional: Add a checkbox/flag in the form to remove the cover
-				if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
-					Storage::disk('public')->delete($book->cover_image_path);
-				}
-				$bookData['cover_image_path'] = null;
-			}
-
-
-			// Unset the helper boolean field if it exists
-			unset($bookData['is_series']);
-			unset($bookData['remove_cover_image']); // Clean up if using this flag
-
-			// Clear series info if not part of a series
-			if (!($validated['is_series'] ?? false)) {
-				$bookData['series_name'] = null;
-				$bookData['series_number'] = null;
-			}
-
-			$book->update($bookData);
-
-			// MODIFIED: Redirect back to the books management page.
-			return Redirect::route('profile.books.edit')->with('status', 'book-updated');
-		}
-
-		/**
-		 * Remove the specified book from storage.
-		 */
-		public function destroyBook(Request $request, Book $book): RedirectResponse
-		{
-			// Authorize: Ensure the user owns this book
-			if ($request->user()->id !== $book->user_id) {
-				abort(403);
-			}
-
-			// Delete cover image if exists
-			if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
-				Storage::disk('public')->delete($book->cover_image_path);
-			}
-
-			$book->delete();
-
-			// MODIFIED: Redirect back to the books management page.
-			return Redirect::route('profile.books.edit')->with('status', 'book-deleted');
-		}
-
-
-		// --- NEW: BOOK IMPORT ---
-
-		/**
-		 * NEW: Display the book import page.
-		 */
-		public function showImportForm(): View
-		{
-			return view('profile.import');
-		}
-
-		/**
-		 * NEW: Fetch book data from the BookCoverZone API with search and pagination.
-		 */
-		public function fetchBookcoverzoneBooks(Request $request): JsonResponse
-		{
-			$user = $request->user();
-			if (!$user->bookcoverzone_user_id) {
-				return response()->json(['success' => false, 'message' => 'Your account is not linked to a BookCoverZone user ID.'], 400);
-			}
-
-			$userId = $user->bookcoverzone_user_id;
-			$bczSiteUrl = env('BOOKCOVERZONE_SITE_URL', 'https://bookcoverzone.com');
-			$userLayersUrl = env('BOOKCOVERZONE_USER_LAYERS_URL', 'https://user-layers.bookcoverzone.com');
-			$searchTerm = $request->input('search', '');
-			$perPage = 15;
-
-			try {
-				// --- MODIFICATION START: Reworked to support search and pagination ---
-
-				// 1. Get all purchased cover filenames for the user for quick lookup.
-				$purchasedCovers = DB::connection('mysql_bookcoverzone')
-					->table('shoppingcarts as sc')
-					->join('orders as o', 'sc.order_id', '=', 'o.id')
-					->join('products as p', 'sc.product_id', '=', 'p.id')
-					->where('sc.user_id', $userId)
-					->where('o.status', 'success')
-					->where('p.type', 'bookcover')
-					->distinct()
-					->pluck('sc.photoshop_filename')
-					->all();
-
-				// 2. Base query for latest front renders, with search.
-				// This subquery finds the latest ID for each cover/trim size combination.
-				$latestFrontHistorySubquery = DB::connection('mysql_bookcoverzone')
-					->table('bkz_front_drag_history')
-					->select(DB::raw('MAX(id) as max_id'))
-					->where('userid', $userId)
-					->where(function ($query) {
-						$query->where('render_result', 'yes')
-							->orWhere('render_status', 11);
-					})
-					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"));
-
-				// Main query to get front render data, applying search term.
-				$frontRendersQuery = DB::connection('mysql_bookcoverzone')
-					->table('bkz_front_drag_history')
-					->whereIn('id', $latestFrontHistorySubquery);
-
-				if (!empty($searchTerm)) {
-					// This search is imperfect due to dynamic JSON keys but is a practical approach.
-					$frontRendersQuery->where('fields', 'LIKE', '%' . $searchTerm . '%');
-				}
-
-				// Manually paginate the results of the main query.
-				$total = $frontRendersQuery->count();
-				$currentPage = LengthAwarePaginator::resolveCurrentPage();
-				$results = $frontRendersQuery->orderBy('id', 'desc')->forPage($currentPage, $perPage)->get();
-				$paginatedFrontRenders = new LengthAwarePaginator($results, $total, $perPage, $currentPage, [
-					'path' => LengthAwarePaginator::resolveCurrentPath(),
-				]);
-
-				if ($paginatedFrontRenders->isEmpty()) {
-					return response()->json(['success' => true, 'books' => $paginatedFrontRenders]);
-				}
-
-				// 3. Get keys (coverfile:trim_size) from the current page of results to fetch related data efficiently.
-				$pageKeys = $paginatedFrontRenders->map(function ($render) {
-					$fields = json_decode($render->fields, true);
-					return [
-						'coverfile' => $fields['coverfile'] ?? null,
-						'trim_size' => $fields['trim_size_name'] ?? null,
-					];
-				})->filter();
-
-				// 4. Get the latest back cover renders that match the keys on the current page.
-				$latestBackHistoryIds = DB::connection('mysql_bookcoverzone')
-					->table('bkz_back_drag_history')
-					->select(DB::raw('MAX(id) as max_id'))
-					->where('userid', $userId)
-					->where(function ($query) {
-						$query->where('render_status', 11);
-					})
-					->where(function ($query) use ($pageKeys) {
-						foreach ($pageKeys as $key) {
-							$query->orWhere(function ($q) use ($key) {
-								$q->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), $key['coverfile'])
-									->where(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"), $key['trim_size']);
-							});
-						}
-					})
-					->groupBy(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.coverfile'))"), DB::raw("JSON_UNQUOTE(JSON_EXTRACT(fields, '$.trim_size_name'))"))
-					->pluck('max_id');
-
-				$latestBackRendersResults = DB::connection('mysql_bookcoverzone')
-					->table('bkz_back_drag_history')
-					->whereIn('id', $latestBackHistoryIds)
-					->get();
-
-				$backRendersMap = [];
-				foreach ($latestBackRendersResults as $render) {
-					$fields = json_decode($render->fields, true);
-					$key = ($fields['coverfile'] ?? '') . ':' . ($fields['trim_size_name'] ?? '');
-					$backRendersMap[$key] = $render;
-				}
-
-				// 5. Get the user's author photo URL.
-				$authorPhotoUrl = null;
-				$photoRow = DB::connection('mysql_bookcoverzone')->table('bkz_members_image_library')->where('userid', $userId)->first();
-				if ($photoRow && !empty($photoRow->author_image_file) && $photoRow->author_image_file !== '/img/backcover-image-placeholder.jpg') {
-					$authorPhotoUrl = rtrim($bczSiteUrl, '/') . $photoRow->author_image_file;
-				}
-
-				// 6. Loop through the paginated front renders and assemble the final book data.
-				$books = [];
-				foreach ($paginatedFrontRenders as $frontRender) {
-					$frontFields = json_decode($frontRender->fields, true);
-					$coverfile = $frontFields['coverfile'] ?? null;
-					$trimSize = $frontFields['trim_size_name'] ?? null;
-
-					if (!$coverfile || !$trimSize) continue;
-
-					$lookupKey = $coverfile . ':' . $trimSize;
-					$backRender = $backRendersMap[$lookupKey] ?? null;
-					$backFields = $backRender ? json_decode($backRender->fields, true) : null;
-
-					// Extract Title
-					$title = 'Untitled';
-					foreach ($frontFields as $key => $value) {
-						if (stripos($key, "layer_title") !== false && stripos($key, "text") !== false && !empty($value)) {
-							$title = $value;
-							break;
-						}
-					}
-
-					// Extract Author
-					$author = '';
-					foreach ($frontFields as $key => $value) {
-						if (stripos($key, "layer_author") !== false && stripos($key, "text") !== false && !empty($value)) {
-							$author = $value;
-							break;
-						}
-					}
-
-					$books[] = [
-						'front_history_id' => (int)$frontRender->id,
-						'back_history_id' => $backRender ? (int)$backRender->id : null,
-						'cover_id' => $coverfile,
-						'trim_size_name' => $frontFields['trim_size_display_name'] ?? 'Ebook',
-						'trim_size_value' => $trimSize,
-						'render_date' => $frontRender->create_time,
-						'is_purchased' => in_array($coverfile, $purchasedCovers),
-						'has_back_cover' => !is_null($backRender),
-						'title' => htmlspecialchars($title),
-						'author' => htmlspecialchars($author),
-						'front_cover_url' => rtrim($userLayersUrl, '/') . "/{$userId}/{$coverfile}/{$frontFields['tempfilename']}-{$trimSize}.jpg",
-						'author_bio' => $backFields['biographytext'] ?? null,
-						'author_photo_url' => ($backFields && ($backFields['use_picture'] ?? 'no') === 'yes') ? $authorPhotoUrl : null,
-					];
-				}
-
-				// 7. Sort the results on the current page to prioritize books with back covers.
-				usort($books, function ($a, $b) {
-					if ($a['has_back_cover'] && !$b['has_back_cover']) return -1;
-					if (!$a['has_back_cover'] && $b['has_back_cover']) return 1;
-					return strtotime($b['render_date']) - strtotime($a['render_date']);
-				});
-
-				// 8. Manually create a new paginator instance with the processed data for the current page.
-				$paginatedBooks = new LengthAwarePaginator($books, $total, $perPage, $currentPage, [
-					'path' => LengthAwarePaginator::resolveCurrentPath(),
-				]);
-
-				// --- MODIFICATION END ---
-
-				return response()->json(['success' => true, 'books' => $paginatedBooks]);
-
-			} catch (\Exception $e) {
-				Log::error('Exception while querying BookCoverZone DB: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-				return response()->json(['success' => false, 'message' => 'An error occurred while fetching your books from the database.'], 500);
-			}
-		}
-
-		/**
-		 * NEW: Import a single book from BookCoverZone data.
-		 */
-		public function importBook(Request $request): JsonResponse
-		{
-			$user = $request->user();
-			$validated = $request->validate([
-				'bookData' => 'required|array',
-				'bookData.title' => 'required|string|max:255',
-				'bookData.front_cover_url' => 'required|url',
-				'bookData.author_bio' => 'nullable|string|max:5000',
-				'bookData.author_photo_url' => 'nullable|url',
-				'updateProfile' => 'required|boolean',
-			]);
-
-			$bookData = $validated['bookData'];
-			$updateProfile = $validated['updateProfile'];
-
-			try {
-				// 1. Download front cover image
-				$coverImagePath = null;
-				if (!empty($bookData['front_cover_url'])) {
-					$imageData = Http::get($bookData['front_cover_url'])->body();
-					if ($imageData) {
-						$filename = 'book-covers/' . Str::random(40) . '.jpg';
-						Storage::disk('public')->put($filename, $imageData);
-						$coverImagePath = $filename;
-					}
-				}
-
-				// 2. Create the book record
-				Book::create([
-					'user_id' => $user->id,
-					'title' => $bookData['title'],
-					'cover_image_path' => $coverImagePath,
-					// You can add more fields here if the API provides them
-					// 'subtitle' => $bookData['subtitle'] ?? null,
-				]);
-
-				// 3. Optionally update user profile
-				if ($updateProfile) {
-					$profileUpdated = false;
-					// Update bio if provided and it's not empty
-					if (!empty($bookData['author_bio'])) {
-						$user->bio = $bookData['author_bio'];
-						$profileUpdated = true;
-					}
-
-					// Update profile photo if provided
-					if (!empty($bookData['author_photo_url'])) {
-						$photoData = Http::get($bookData['author_photo_url'])->body();
-						if ($photoData) {
-							// Delete old photo if it exists
-							if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
-								Storage::disk('public')->delete($user->profile_photo_path);
-							}
-							$photoFilename = 'profile-photos/' . Str::random(40) . '.jpg';
-							Storage::disk('public')->put($photoFilename, $photoData);
-							$user->profile_photo_path = $photoFilename;
-							$profileUpdated = true;
-						}
-					}
-
-					if ($profileUpdated) {
-						$user->save();
-					}
-				}
-
-				return response()->json(['success' => true, 'message' => 'Book imported successfully!']);
-
-			} catch (\Exception $e) {
-				Log::error('Error during book import for user ' . $user->id, [
-					'message' => $e->getMessage(),
-					'trace' => $e->getTraceAsString(),
-				]);
-				return response()->json(['success' => false, 'message' => 'An error occurred during the import process.'], 500);
-			}
-		}
-
-
-		/**
 		 * Delete the user's account.
-		 * NOTE: No changes needed here.
 		 */
 		public function destroy(Request $request): RedirectResponse
 		{
@@ -674,25 +191,18 @@
 
 			$user = $request->user();
 
-			// Optional: Delete associated storage (profile photos, book covers)
-			// Be careful with this - maybe make it optional or background job
+			// Optional: Delete associated storage
 			if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
 				Storage::disk('public')->delete($user->profile_photo_path);
 			}
-			foreach($user->books as $book) {
+			foreach ($user->books as $book) {
 				if ($book->cover_image_path && Storage::disk('public')->exists($book->cover_image_path)) {
 					Storage::disk('public')->delete($book->cover_image_path);
 				}
-				// Note: Books themselves will be deleted by cascade constraint if set up correctly,
-				// otherwise delete them manually here before deleting the user.
-				// $book->delete(); // Not needed if cascade is on
 			}
 
-
 			Auth::logout();
-
-			$user->delete(); // This should trigger cascade delete for books if set
-
+			$user->delete();
 			$request->session()->invalidate();
 			$request->session()->regenerateToken();
 
