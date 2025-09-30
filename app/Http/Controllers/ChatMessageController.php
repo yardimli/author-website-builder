@@ -184,21 +184,18 @@
 					$pendingOperations[] = ['type' => 'write', 'data' => $match];
 				}
 
-				// Step 5B: Validate all operations, especially PHP file writes
+				// Step 5B: Validate all operations, especially for forbidden file types
 				foreach ($pendingOperations as $operation) {
 					if ($operation['type'] === 'write') {
 						$filename = trim($operation['data'][2]);
 						$content = trim($operation['data'][4]);
 						$filetype = pathinfo($filename, PATHINFO_EXTENSION);
 
+						// MODIFIED: Explicitly block PHP file creation as per new guidelines
 						if ($filetype === 'php') {
-							$sanitizationResult = CodeSanitizerHelper::sanitizePhp($content);
-							if (!$sanitizationResult['success']) {
-								// A violation was found. Store the message and stop checking.
-								$securityViolationMessage = $sanitizationResult['message'];
-								Log::warning("SECURITY BLOCK on Website ID {$website->id}: " . $securityViolationMessage);
-								break; // Exit the validation loop immediately
-							}
+							$securityViolationMessage = "Security error: Creation of PHP files is not allowed. Only HTML, CSS, and JavaScript files can be created.";
+							Log::warning("SECURITY BLOCK on Website ID {$website->id}: Attempted to write a PHP file '{$filename}'.");
+							break; // Exit the validation loop immediately
 						}
 					}
 				}

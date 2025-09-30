@@ -20,8 +20,8 @@
 		 */
 		public function serve(Request $request, Website $website, $path = null): Response
 		{
-			// --- Determine filename and folder (No change here) ---
-			$requestedPath = $path ?: 'index.php'; // Default to index.php
+			// --- Determine filename and folder ---
+			$requestedPath = $path ?: 'index.html'; // MODIFIED: Default to index.html
 			$folder = dirname($requestedPath);
 			$filename = basename($requestedPath);
 
@@ -40,8 +40,8 @@
 
 			// --- Handle File Not Found (No change here) ---
 			if (!$latestRequestedFile || $latestRequestedFile->is_deleted) {
-				if ($requestedPath === 'index.php' && $folder === '/') {
-					abort(404, "index.php not found in the root of this website's generated files.");
+				if ($requestedPath === 'index.html' && $folder === '/') {
+					abort(404, "index.html not found in the root of this website's generated files.");
 				}
 				abort(404, "File not found ('{$requestedPath}') or has been deleted in this website's generated files.");
 			}

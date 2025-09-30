@@ -139,10 +139,10 @@
 				$initialUserPrompt .= "\n";
 			}
 
-			// --- Create Static Header/Footer and Minimal Index Files ---
+			// --- Create Initial HTML, CSS, and JS Files ---
 			try {
-				// MODIFIED: Added integrity hashes to the CDN links for security.
-				$headerContent = <<<PHP
+				// MODIFIED: Create a complete, minimal index.html file
+				$minimalIndexContent = <<<HTML
 <!doctype html>
 <html lang="en">
 <head>
@@ -154,28 +154,7 @@
     <link rel="stylesheet" href="css/style.css"/>
 </head>
 <body>
-<div class="container">
-PHP;
-
-				// MODIFIED: Added integrity hash to the Bootstrap JS CDN link.
-				$footerContent = <<<PHP
-</div> <!-- /container -->
-
-<footer class="text-center mt-5 text-muted">
-    <p>© <?php echo date('Y'); ?> {$user->name}. Website by Book Cover Zone.</p>
-</footer>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-<script src="js/script.js"></script>
-</body>
-</html>
-PHP;
-
-				// Minimal content for index.php
-				$minimalIndexContent = <<<PHP
-<?php require_once 'includes/header.php'; ?>
-
-<main class="py-5">
+<main class="container py-5">
     <div class="text-center">
         <h1 class="display-5 fw-bold">{$website->name}</h1>
         <p class="fs-5 text-muted">Generating initial content...</p>
@@ -183,61 +162,15 @@ PHP;
     </div>
 </main>
 
-<?php require_once 'includes/footer.php'; ?>
-PHP;
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="js/script.js"></script>
+</body>
+</html>
+HTML;
 
-				// Create header file record
-				WebsiteFile::create([
-					'website_id' => $website->id,
-					'filename' => 'header.php',
-					'folder' => '/includes',
-					'filetype' => 'php',
-					'version' => 1,
-					'content' => $headerContent,
-					'is_deleted' => false,
-				]);
-
-				// Create footer file record
-				WebsiteFile::create([
-					'website_id' => $website->id,
-					'filename' => 'footer.php',
-					'folder' => '/includes',
-					'filetype' => 'php',
-					'version' => 1,
-					'content' => $footerContent,
-					'is_deleted' => false,
-				]);
-
-				// Create minimal index file record
-				WebsiteFile::create([
-					'website_id' => $website->id,
-					'filename' => 'index.php',
-					'folder' => '/',
-					'filetype' => 'php',
-					'version' => 1,
-					'content' => $minimalIndexContent,
-					'is_deleted' => false,
-				]);
-
-				// Create minimal script.js file record
-				WebsiteFile::create([
-					'website_id' => $website->id,
-					'filename' => 'script.js',
-					'folder' => '/js',
-					'filetype' => 'js',
-					'version' => 1,
-					'content' => '',
-					'is_deleted' => false,
-				]);
-
-				// Create minimal style.css file record
-				WebsiteFile::create([
-					'website_id' => $website->id,
-					'filename' => 'style.css',
-					'folder' => '/css',
-					'filetype' => 'css',
-					'version' => 1,
-					'content' => ":root {
+				// MODIFIED: Create minimal style.css content
+				$minimalCssContent = <<<CSS
+:root {
   --primary-color: #2c3e50;
   --secondary-color: #c0392b;
   --text-color: #333333;
@@ -251,6 +184,7 @@ body {
   color: var(--text-color);
   line-height: 1.6;
 }
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-primary);
   font-weight: 700;
@@ -266,155 +200,42 @@ a:hover {
   color: darken(var(--secondary-color), 15%);
   text-decoration: none;
 }
+CSS;
 
-blockquote {
-  font-family: var(--font-primary);
-  font-style: italic;
-  border-left: 4px solid var(--secondary-color);
-  padding-left: 1.5rem;
-  margin: 1.5rem 0;
-  color: #555;
-}
-.section-padding {
-  padding: 5rem 0;
-}
-
-.bg-light-custom {
-  background-color: var(--light-color);
-}
-
-.header-overlay {
-  position: relative;
-  background-color: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 3rem 0;
-}
-.navbar {
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
-
-.navbar-brand {
-  font-family: var(--font-primary);
-  font-weight: 700;
-  font-size: 1.8rem;
-}
-
-.nav-link {
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: 0.9rem;
-  margin: 0 0.5rem;
-}
-
-.nav-link.active {
-  color: var(--secondary-color) !important;
-}
-
-.btn-primary {
-  background-color: var(--secondary-color);
-  border-color: var(--secondary-color);
-  padding: 0.5rem 1.5rem;
-  font-weight: 600;
-}
-
-.btn-primary:hover {
-  background-color: darken(var(--secondary-color), 10%);
-  border-color: darken(var(--secondary-color), 10%);
-}
-
-.btn-outline-primary {
-  color: var(--secondary-color);
-  border-color: var(--secondary-color);
-}
-
-.btn-outline-primary:hover {
-  background-color: var(--secondary-color);
-  border-color: var(--secondary-color);
-}
-
-.hero {
-  background-size: cover;
-  background-position: center;
-  min-height: 500px;
-  display: flex;
-  align-items: center;
-  position: relative;
-}
-
-.hero-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.hero-content {
-  position: relative;
-  z-index: 2;
-  color: white;
-}
-
-.hero-title {
-  font-size: 3.5rem;
-  font-weight: 700;
-  margin-bottom: 1rem;
-}
-
-.hero-subtitle {
-  font-size: 1.5rem;
-  margin-bottom: 2rem;
-  font-weight: 300;
-}
-
-.book-cover {
-  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s ease;
-  max-width: 100%;
-  height: auto;
-}
-
-.book-cover:hover {
-  transform: scale(1.03);
-}
-
-.book-title {
-  font-size: 1.5rem;
-  margin-top: 1.5rem;
-}
-
-.book-description {
-  color: #666;
-}
-
-.author-img {
-  border-radius: 50%;
-  max-width: 200px;
-  margin-bottom: 2rem;
-  border: 5px solid white;
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-}
-
-.testimonial-card {
-  border-radius: 10px;
-  padding: 2rem;
-  margin-bottom: 1.5rem;
-  background-color: white;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
-}
-
-.testimonial-author {
-  font-weight: 600;
-  font-style: italic;
-  margin-top: 1rem;
-}
-",
+				// Create index.html file record
+				WebsiteFile::create([
+					'website_id' => $website->id,
+					'filename' => 'index.html',
+					'folder' => '/',
+					'filetype' => 'html',
+					'version' => 1,
+					'content' => $minimalIndexContent,
 					'is_deleted' => false,
 				]);
 
-				Log::info("Created initial files (header, footer, minimal index) for Website ID: {$website->id}");
+				// Create minimal script.js file record
+				WebsiteFile::create([
+					'website_id' => $website->id,
+					'filename' => 'script.js',
+					'folder' => '/js',
+					'filetype' => 'js',
+					'version' => 1,
+					'content' => "// JavaScript will be generated here.",
+					'is_deleted' => false,
+				]);
+
+				// Create minimal style.css file record
+				WebsiteFile::create([
+					'website_id' => $website->id,
+					'filename' => 'style.css',
+					'folder' => '/css',
+					'filetype' => 'css',
+					'version' => 1,
+					'content' => $minimalCssContent,
+					'is_deleted' => false,
+				]);
+
+				Log::info("Created initial files (index.html, style.css, script.js) for Website ID: {$website->id}");
 
 			} catch (\Exception $e) {
 				Log::error("Failed to create initial files for Website ID {$website->id}: " . $e->getMessage());
