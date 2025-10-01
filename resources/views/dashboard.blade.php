@@ -169,7 +169,7 @@
 					@error('slug')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
 				</div>
 				
-				{{-- NEW: Website Style Dropdown --}}
+				{{-- MODIFIED: Website Style Dropdown with custom option --}}
 				<div>
 					<label class="label" for="website_style">
 						<span class="label-text">Website Style *</span>
@@ -182,8 +182,18 @@
 						<option value="Whimsical & Fun" @selected(old('website_style') == 'Whimsical & Fun')>Whimsical & Fun (for Children's/Comedy)</option>
 						<option value="Bold & Action-Packed" @selected(old('website_style') == 'Bold & Action-Packed')>Bold & Action-Packed (for Sci-Fi/Action)</option>
 						<option value="Professional & Informative" @selected(old('website_style') == 'Professional & Informative')>Professional & Informative (for Non-Fiction)</option>
+						<option value="Custom" @selected(old('website_style') == 'Custom')>I want to describe the style myself...</option>
 					</select>
 					@error('website_style')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
+				</div>
+				
+				{{-- NEW: Custom Website Style Input (initially hidden) --}}
+				<div id="custom-style-container" style="display: none;">
+					<label class="label" for="custom_website_style">
+						<span class="label-text">Describe Your Desired Style *</span>
+					</label>
+					<input type="text" id="custom_website_style" name="custom_website_style" placeholder="e.g., 'A vintage sci-fi look with typewriter fonts'" class="input input-bordered w-full" value="{{ old('custom_website_style') }}" />
+					@error('custom_website_style')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
 				</div>
 				
 				{{-- Primary Book --}}
@@ -352,6 +362,26 @@
 				
 				// Run whenever the primary book selection changes
 				primaryBookSelect.addEventListener('change', syncFeaturedBooks);
+			}
+			
+			// --- NEW: Logic for custom website style input ---
+			const websiteStyleSelect = document.querySelector('#create_website_modal #website_style');
+			const customStyleContainer = document.querySelector('#create_website_modal #custom-style-container');
+			
+			if (websiteStyleSelect && customStyleContainer) {
+				const toggleCustomStyleInput = () => {
+					if (websiteStyleSelect.value === 'Custom') {
+						customStyleContainer.style.display = 'block';
+					} else {
+						customStyleContainer.style.display = 'none';
+					}
+				};
+				
+				// Run on initial load to handle old input from validation errors
+				toggleCustomStyleInput();
+				
+				// Run whenever the style selection changes
+				websiteStyleSelect.addEventListener('change', toggleCustomStyleInput);
 			}
 		});
 	</script>
