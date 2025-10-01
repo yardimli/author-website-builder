@@ -19,6 +19,22 @@
 						</div>
 					@endif
 					
+					{{-- NEW: Instructions Section --}}
+					<div class="mb-6 p-4 bg-base-200 rounded-lg">
+						<h2 class="font-bold text-lg mb-2">How to Use the AI Website Builder</h2>
+						<p class="text-sm opacity-80">
+							Once you create a website, you will be taken to the editor. You can ask the AI assistant to make changes to your site. For example, try asking it to:
+						</p>
+						<ul class="list-disc pl-5 mt-2 text-sm space-y-1">
+							<li>Change the background to a simple color consistent with the book cover.</li>
+							<li>Change the title font to something closer to the font on the book cover.</li>
+							<li>Try another font, more similar to the text on the cover.</li>
+							<li>Change the banner background to a more faded image of the cover image.</li>
+							<li>Connect the Facebook link to my Facebook account.</li>
+							<li>Add another section for the content of the book.</li>
+						</ul>
+					</div>
+					
 					{{-- Prerequisite Check --}}
 					@if(!$prerequisitesMet)
 						<div role="alert" class="alert alert-error mb-6">
@@ -32,7 +48,6 @@
 											<li>Completed your profile (name, bio, and profile photo). <a href="{{ route('profile.edit') }}" class="font-semibold underline">Go to Profile</a></li>
 										@endif
 										@if(!$hasBooks)
-											{{-- MODIFIED: Corrected route to books page --}}
 											<li>Added at least one book to your profile. <a href="{{ route('profile.books.edit') }}" class="font-semibold underline">Go to Books</a></li>
 										@endif
 									</ul>
@@ -41,87 +56,20 @@
 						</div>
 					@endif
 					
-					{{-- New Website Form --}}
+					{{-- MODIFIED: Replaced inline form with a button that opens a modal --}}
 					@if($prerequisitesMet)
-						<div class="card bg-base-200 mb-6">
-							<div class="card-body">
-								<h2 class="card-title">Create a New Website</h2>
-								<p>Configure your new project.</p>
-								<form method="POST" action="{{ route('websites.store') }}" class="space-y-4">
-									@csrf
-									{{-- Website Name --}}
-									<div>
-										<label class="label" for="name">
-											<span class="label-text">Website Name *</span>
-										</label>
-										<input type="text" id="name" name="name" placeholder="My Awesome Author Site" class="input input-bordered w-full" required value="{{ old('name') }}" />
-										@error('name')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-									</div>
-									
-									{{-- NEW: Website URL/Slug Input --}}
-									<div>
-										<label class="label" for="slug">
-											<span class="label-text">Website URL *</span>
-										</label>
-										<div class="join w-full">
-											{{-- MODIFIED: Replaced route() with url() to prevent URL generation error --}}
-											<span class="join-item btn btn-disabled !bg-base-300 !border-base-300 text-base-content/50">{{ url('/website') }}/</span>
-											<input type="text" id="slug" name="slug" placeholder="my-awesome-site" class="input input-bordered join-item w-full" required value="{{ old('slug', $suggestedSlug) }}" />
-										</div>
-										<div id="slug-feedback" class="text-sm mt-1 h-5"></div>
-										@error('slug')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-									</div>
-									
-									{{-- Primary Book --}}
-									<div>
-										<label class="label" for="primary_book_id">
-											<span class="label-text">Primary Book *</span>
-										</label>
-										{{-- MODIFIED: Added id for JS targeting --}}
-										<select name="primary_book_id" id="primary_book_select" class="select select-bordered w-full" required>
-											{{-- MODIFIED: Added empty value for better validation handling --}}
-											<option disabled selected value="">Select the main book to feature</option>
-											@foreach($userBooks as $book)
-												<option value="{{ $book->id }}" @selected(old('primary_book_id') == $book->id)>
-													{{ $book->title }} {{ $book->series_name ? "({$book->series_name} #{$book->series_number})" : '' }}
-												</option>
-											@endforeach
-										</select>
-										@error('primary_book_id')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-									</div>
-									
-									{{-- Featured Books --}}
-									@if(count($userBooks) > 1)
-										<div class="space-y-2">
-											<label class="label"><span class="label-text">Additional Books (Optional)</span></label>
-											<p class="text-sm opacity-70">Select other books to showcase.</p>
-											<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-												@foreach($userBooks as $book)
-													<div class="form-control">
-														<label class="label cursor-pointer justify-start gap-4">
-															{{-- MODIFIED: Added class for JS targeting and improved old() helper --}}
-															<input type="checkbox" name="featured_book_ids[]" value="{{ $book->id }}" class="checkbox featured-book-checkbox" @checked(is_array(old('featured_book_ids')) && in_array($book->id, old('featured_book_ids')))>
-															<span class="label-text">{{ $book->title }}</span>
-														</label>
-													</div>
-												@endforeach
-											</div>
-											@error('featured_book_ids.*')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-										</div>
-									@endif
-									
-									<div class="card-actions justify-end">
-										<button type="submit" class="btn btn-primary">Create Website</button>
-									</div>
-								</form>
-							</div>
+						<div class="mb-6">
+							<button class="btn btn-primary" onclick="create_website_modal.showModal()">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+								Create New Website
+							</button>
 						</div>
 					@endif
 					
 					{{-- Website List --}}
 					@if($websites->isEmpty() && $prerequisitesMet)
 						<p class="text-center opacity-70 mt-4">
-							You haven't created any websites yet. Use the form above to start!
+							You haven't created any websites yet. Use the button above to start!
 						</p>
 					@endif
 					
@@ -133,19 +81,16 @@
 									<div class="card bg-base-200 shadow-xl">
 										<div class="card-body">
 											<h2 class="card-title hover:text-primary">
-												{{-- MODIFIED: Route now uses the website object, which resolves to the slug --}}
 												<a href="{{ route('websites.show', $website) }}">{{ $website->name }}</a>
 											</h2>
 											<p>Created: {{ $website->created_at->toFormattedDateString() }}</p>
 											<div class="card-actions justify-end">
-												{{-- NEW: Settings button to open the slug editing modal --}}
 												<button class="btn btn-ghost btn-sm" onclick="document.getElementById('slug_modal_{{ $website->id }}').showModal()">Settings</button>
 												<a href="{{ route('websites.show', $website) }}" class="btn btn-outline btn-sm">Open Editor</a>
 											</div>
 										</div>
 									</div>
 									
-									{{-- NEW: Modal for editing the website slug --}}
 									<dialog id="slug_modal_{{ $website->id }}" class="modal">
 										<div class="modal-box">
 											<h3 class="font-bold text-lg">Website Settings for "{{ $website->name }}"</h3>
@@ -158,7 +103,6 @@
 														<span class="label-text">Website URL *</span>
 													</label>
 													<div class="join w-full">
-														{{-- MODIFIED: Replaced route() with url() to prevent URL generation error --}}
 														<span class="join-item btn btn-disabled !bg-base-300 !border-base-300 text-base-content/50">{{ url('/website') }}/</span>
 														<input type="text" id="slug_{{ $website->id }}" name="slug" class="input input-bordered join-item w-full slug-input" required value="{{ old('slug', $website->slug) }}" />
 													</div>
@@ -177,14 +121,116 @@
 							</div>
 						</div>
 					@endif
+					
+					{{-- NEW: Beta Notice Info Box --}}
+					<div class="mt-8">
+						<div role="alert" class="alert alert-info">
+							<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+							<span>This service is still in beta and currently open for free testing, expect results to be varied.</span>
+						</div>
+					</div>
 				
 				</div>
 			</div>
 		</div>
 	</div>
+	
+	{{-- NEW: Modal for creating a new website --}}
+	<dialog id="create_website_modal" class="modal">
+		<div class="modal-box w-11/12 max-w-3xl">
+			<form method="dialog">
+				<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+			</form>
+			<h3 class="font-bold text-lg">Create a New Website</h3>
+			<p class="py-2 text-sm">Configure your new project.</p>
+			<div class="divider"></div>
+			
+			<form method="POST" action="{{ route('websites.store') }}" class="space-y-4 pt-2">
+				@csrf
+				{{-- Website Name --}}
+				<div>
+					<label class="label" for="name">
+						<span class="label-text">Website Name *</span>
+					</label>
+					<input type="text" id="name" name="name" placeholder="My Awesome Author Site" class="input input-bordered w-full" required value="{{ old('name') }}" />
+					@error('name')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
+				</div>
+				
+				{{-- Website URL/Slug Input --}}
+				<div>
+					<label class="label" for="slug">
+						<span class="label-text">Website URL *</span>
+					</label>
+					<div class="join w-full">
+						<span class="join-item btn btn-disabled !bg-base-300 !border-base-300 text-base-content/50">{{ url('/website') }}/</span>
+						<input type="text" id="slug" name="slug" placeholder="my-awesome-site" class="input input-bordered join-item w-full" required value="{{ old('slug', $suggestedSlug) }}" />
+					</div>
+					<div id="slug-feedback" class="text-sm mt-1 h-5"></div>
+					@error('slug')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
+				</div>
+				
+				{{-- NEW: Website Style Dropdown --}}
+				<div>
+					<label class="label" for="website_style">
+						<span class="label-text">Website Style *</span>
+					</label>
+					<select name="website_style" id="website_style" class="select select-bordered w-full" required>
+						<option disabled selected value="">Select a visual style</option>
+						<option value="Modern & Minimal" @selected(old('website_style') == 'Modern & Minimal')>Modern & Minimal</option>
+						<option value="Classic & Elegant" @selected(old('website_style') == 'Classic & Elegant')>Classic & Elegant</option>
+						<option value="Dark & Mysterious" @selected(old('website_style') == 'Dark & Mysterious')>Dark & Mysterious (for Thrillers/Fantasy)</option>
+						<option value="Whimsical & Fun" @selected(old('website_style') == 'Whimsical & Fun')>Whimsical & Fun (for Children's/Comedy)</option>
+						<option value="Bold & Action-Packed" @selected(old('website_style') == 'Bold & Action-Packed')>Bold & Action-Packed (for Sci-Fi/Action)</option>
+						<option value="Professional & Informative" @selected(old('website_style') == 'Professional & Informative')>Professional & Informative (for Non-Fiction)</option>
+					</select>
+					@error('website_style')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
+				</div>
+				
+				{{-- Primary Book --}}
+				<div>
+					<label class="label" for="primary_book_id">
+						<span class="label-text">Primary Book *</span>
+					</label>
+					<select name="primary_book_id" id="primary_book_select" class="select select-bordered w-full" required>
+						<option disabled selected value="">Select the main book to feature</option>
+						@foreach($userBooks as $book)
+							<option value="{{ $book->id }}" @selected(old('primary_book_id') == $book->id)>
+								{{ $book->title }} {{ $book->series_name ? "({$book->series_name} #{$book->series_number})" : '' }}
+							</option>
+						@endforeach
+					</select>
+					@error('primary_book_id')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
+				</div>
+				
+				{{-- Featured Books --}}
+				@if(count($userBooks) > 1)
+					<div class="space-y-2 pt-2">
+						<label class="label"><span class="label-text">Additional Books (Optional)</span></label>
+						<p class="text-sm opacity-70 -mt-2">Select other books to showcase on the website.</p>
+						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+							@foreach($userBooks as $book)
+								<div class="form-control">
+									<label class="label cursor-pointer justify-start gap-4">
+										<input type="checkbox" name="featured_book_ids[]" value="{{ $book->id }}" class="checkbox featured-book-checkbox" @checked(is_array(old('featured_book_ids')) && in_array($book->id, old('featured_book_ids')))>
+										<span class="label-text">{{ $book->title }}</span>
+									</label>
+								</div>
+							@endforeach
+						</div>
+						@error('featured_book_ids.*')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
+					</div>
+				@endif
+				
+				<div class="modal-action pt-4">
+					<form method="dialog"><button class="btn">Cancel</button></form>
+					<button type="submit" class="btn btn-primary">Create Website</button>
+				</div>
+			</form>
+		</div>
+		<form method="dialog" class="modal-backdrop"><button>close</button></form>
+	</dialog>
 @endsection
 
-{{-- MODIFIED: Added new script for primary/featured book logic --}}
 @push('scripts')
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
@@ -248,8 +294,8 @@
 				}, 500); // 500ms debounce
 			};
 			
-			// For the "Create Website" form
-			const createForm = document.querySelector('form[action="{{ route("websites.store") }}"]');
+			// MODIFIED: Target the form inside the new modal
+			const createForm = document.querySelector('#create_website_modal form[action="{{ route("websites.store") }}"]');
 			if (createForm) {
 				const createFormSlugInput = createForm.querySelector('#slug');
 				const createFormSlugFeedback = createForm.querySelector('#slug-feedback');
@@ -276,9 +322,9 @@
 				}
 			});
 			
-			// --- NEW: Logic to disable featured book checkbox if it's the primary book ---
-			const primaryBookSelect = document.getElementById('primary_book_select');
-			const featuredBookCheckboxes = document.querySelectorAll('.featured-book-checkbox');
+			// MODIFIED: Target the primary book select inside the new modal
+			const primaryBookSelect = document.querySelector('#create_website_modal #primary_book_select');
+			const featuredBookCheckboxes = document.querySelectorAll('#create_website_modal .featured-book-checkbox');
 			
 			if (primaryBookSelect && featuredBookCheckboxes.length > 0) {
 				const syncFeaturedBooks = () => {

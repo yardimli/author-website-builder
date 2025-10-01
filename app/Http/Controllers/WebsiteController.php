@@ -71,10 +71,11 @@
 			}
 
 			// --- Validation ---
-			// MODIFIED: Added validation rules for the new 'slug' field.
+			// MODIFIED: Added validation rules for the new 'slug' and 'website_style' fields.
 			$validated = $request->validate([
 				'name' => 'required|string|max:255',
 				'slug' => 'required|string|max:255|alpha_dash|unique:websites,slug',
+				'website_style' => 'required|string|max:255', // NEW: Added website_style validation
 				'primary_book_id' => [
 					'required',
 					'integer',
@@ -110,7 +111,9 @@
 			]);
 
 			// --- Construct User Prompt for Initial Generation ---
+			// MODIFIED: Added the selected website style to the initial prompt.
 			$initialUserPrompt = "Generate the content for my author website with the following information.\n\n";
+			$initialUserPrompt .= "The overall style should be: " . $validated['website_style'] . ".\n\n"; // NEW: Add selected style to prompt
 			$initialUserPrompt .= "Name: " . $user->name . "\n";
 			$initialUserPrompt .= "Bio:\n" . $user->bio . "\n\n";
 			$initialUserPrompt .= "Primary Book to Feature:\n";
