@@ -127,11 +127,18 @@
 				}
 
 				// 5. Get the user's author photo URL.
+				// MODIFIED: START - URL-encode the author photo path to handle spaces and special characters.
 				$authorPhotoUrl = null;
 				$photoRow = DB::connection('mysql_bookcoverzone')->table('bkz_members_image_library')->where('userid', $userId)->first();
 				if ($photoRow && !empty($photoRow->author_image_file) && $photoRow->author_image_file !== '/img/backcover-image-placeholder.jpg') {
-					$authorPhotoUrl = rtrim($bczSiteUrl, '/') . $photoRow->author_image_file;
+					// Split the path into segments, URL-encode each segment, then reassemble.
+					// This correctly handles spaces in filenames without encoding the directory slashes.
+					$pathParts = explode('/', ltrim($photoRow->author_image_file, '/'));
+					$encodedPathParts = array_map('rawurlencode', $pathParts);
+					$encodedPath = implode('/', $encodedPathParts);
+					$authorPhotoUrl = rtrim($bczSiteUrl, '/') . '/' . $encodedPath;
 				}
+				// MODIFIED: END
 
 				// 6. Assemble the final book data.
 				$books = [];
@@ -184,6 +191,14 @@
 					}
 					// END MODIFICATION
 
+					// MODIFIED: START - URL-encode components for the front cover URL to ensure validity.
+					$encodedUserId = rawurlencode($userId);
+					$encodedCoverfile = rawurlencode($coverfile);
+					$encodedTempFilename = rawurlencode($frontFields['tempfilename']);
+					$encodedTrimSize = rawurlencode($trimSize);
+					$frontCoverUrl = rtrim($userLayersUrl, '/') . "/{$encodedUserId}/{$encodedCoverfile}/{$encodedTempFilename}-{$encodedTrimSize}.jpg";
+					// MODIFIED: END
+
 					$books[] = [
 						'front_history_id' => (int)$frontRender->id,
 						'back_history_id' => $backRender ? (int)$backRender->id : null,
@@ -198,7 +213,7 @@
 						'subtitle' => htmlspecialchars($subtitle), // NEW: Add subtitle to the response.
 						'hook' => htmlspecialchars($hook), // NEW: Add hook to the response.
 						'author' => htmlspecialchars($author),
-						'front_cover_url' => rtrim($userLayersUrl, '/') . "/{$userId}/{$coverfile}/{$frontFields['tempfilename']}-{$trimSize}.jpg",
+						'front_cover_url' => $frontCoverUrl, // MODIFIED: Use the new encoded URL variable.
 						'about_the_book' => isset($backFields['backcovertext']) ? strip_tags($backFields['backcovertext']) : null,
 						'author_bio' => isset($backFields['biographytext']) ? strip_tags($backFields['biographytext']) : null,
 						'author_photo_url' => ($backFields && ($backFields['use_picture'] ?? 'no') === 'yes') ? $authorPhotoUrl : null,
