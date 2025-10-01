@@ -1,6 +1,13 @@
 @extends('layouts.app')
 
 @section('content')
+	{{-- NEW: Full-screen overlay for initial website generation --}}
+	<div id="initial-build-spinner" class="fixed inset-0 z-50 flex-col items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm" style="display: none;">
+		<span class="loading loading-infinity loading-lg text-primary"></span>
+		<p class="mt-4 text-lg font-semibold text-white">Building your website...</p>
+		<p class="text-sm text-white/80">The AI is warming up. This may take a moment.</p>
+	</div>
+	
 	{{-- Main container with full height minus the navbar --}}
 	<div class="flex flex-col md:flex-row h-[calc(100vh-68px)]">
 		
@@ -11,7 +18,6 @@
 				@foreach($chatMessages as $msg)
 					<div class="chat {{ $msg->role === 'user' ? 'chat-end' : 'chat-start' }}">
 						<div class="chat-bubble {{ $msg->role === 'user' ? 'chat-bubble-primary' : '' }}">
-							{{-- MODIFIED: Render initial messages as Markdown for rich formatting. --}}
 							{!! \Illuminate\Support\Str::markdown($msg->content) !!}
 						</div>
 					</div>
@@ -21,7 +27,7 @@
 			<form id="chat-form" class="p-3 border-t border-base-300 flex items-end gap-2 bg-base-100">
 				<textarea id="chat-input" placeholder="Ask Author Website Builder to build..." class="textarea textarea-bordered flex-grow resize-none text-sm" rows="1"></textarea>
 				<button type="submit" id="chat-submit-btn" class="btn btn-primary btn-square">
-					{{-- MODIFIED: The button icon is now managed by JavaScript to show a spinner. --}}
+					{{-- The button icon is now managed by JavaScript to show a spinner. --}}
 				</button>
 			</form>
 		</div>
@@ -43,7 +49,12 @@
 			</div>
 			
 			<div id="preview-content" class="tab-pane flex-grow p-4 overflow-auto">
-				<div id="preview-container" class="mx-auto transition-all duration-300 ease-in-out w-full h-full">
+				{{-- MODIFIED: Added a relative container for the iframe and its spinner --}}
+				<div id="preview-container" class="relative mx-auto transition-all duration-300 ease-in-out w-full h-full">
+					{{-- NEW: Spinner overlay for the iframe --}}
+					<div id="iframe-spinner" class="absolute inset-0 z-10 flex items-center justify-center bg-base-100 bg-opacity-75 rounded-md" style="display: none;">
+						<span class="loading loading-spinner loading-lg"></span>
+					</div>
 					<iframe id="preview-iframe" src="{{ route('website.preview.serve', $website) }}" class="w-full h-full bg-white rounded-md shadow border-0"></iframe>
 				</div>
 			</div>
@@ -96,25 +107,26 @@
 @endsection
 
 @push('scripts')
-	{{-- NEW: Added marked.js library for client-side Markdown rendering. --}}
 	<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 	<script>
 		document.addEventListener('DOMContentLoaded', function () {
 			// --- COMMON ELEMENTS ---
 			const websiteId = @json($website->id);
 			const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+			const initialBuildSpinner = document.getElementById('initial-build-spinner'); // NEW
 			
 			// --- CHAT ELEMENTS & LOGIC ---
 			const chatForm = document.getElementById('chat-form');
 			const chatInput = document.getElementById('chat-input');
 			const chatSubmitBtn = document.getElementById('chat-submit-btn');
 			const chatMessages = document.getElementById('chat-messages');
-			const initialPrompt = @json(session('initial_prompt'));
+			let initialPrompt = @json(session('initial_prompt')); // MODIFIED: Use let to allow modification
 			
 			// --- PREVIEW ELEMENTS & LOGIC ---
 			const previewIframe = document.getElementById('preview-iframe');
 			const previewContainer = document.getElementById('preview-container');
 			const panelControls = document.getElementById('panel-controls');
+			const iframeSpinner = document.getElementById('iframe-spinner'); // NEW
 			
 			// --- CODE EDITOR ELEMENTS & LOGIC ---
 			const codeFileList = document.getElementById('code-file-list');
@@ -134,12 +146,11 @@
 			let selectedFile = null;
 			let isEditing = false;
 			let isSaving = false;
-			let lastUserMessage = ''; // NEW: Store the last user message that resulted in an error.
-			let lastResponseWasError = false; // NEW: Flag to check if the last assistant response was an error.
+			let lastUserMessage = '';
+			let lastResponseWasError = false;
 			
 			// --- ICON SVGs ---
 			const icons = {
-				// MODIFIED: Added send and spinner icons for the chat button.
 				send: `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>`,
 				spinner: `<span class="loading loading-spinner"></span>`,
 				monitor: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>`,
@@ -154,41 +165,34 @@
 			
 			// --- FUNCTIONS ---
 			
-			// NEW: Helper function to scroll the chat container to the very bottom.
 			function scrollChatToBottom() {
 				chatMessages.scrollTop = chatMessages.scrollHeight;
 			};
 			
-			// MODIFIED: This function now uses marked.js to render Markdown and scrolls down after adding a message.
 			function addMessageToUI(role, content) {
 				const messageElement = document.createElement('div');
 				messageElement.className = `chat ${role === 'user' ? 'chat-end' : 'chat-start'}`;
 				
 				const bubble = document.createElement('div');
 				bubble.className = `chat-bubble ${role === 'user' ? 'chat-bubble-primary' : ''}`;
-				// Use marked.js to parse markdown content for rich text
 				bubble.innerHTML = marked.parse(content);
 				
 				messageElement.appendChild(bubble);
 				chatMessages.appendChild(messageElement);
 				
-				// NEW: Scroll to the new message.
 				scrollChatToBottom();
 			};
 			
-			// MODIFIED: This function now provides instant UI feedback and manages the loading state.
 			async function sendMessage(message) {
 				if (!message.trim()) {
 					return;
 				}
 				
-				// A new message is being sent, so the previous error state is no longer relevant for resending.
 				lastResponseWasError = false;
 				
 				addMessageToUI('user', message);
 				chatInput.value = '';
 				
-				// MODIFIED: Disable input and show a spinner on the button to indicate processing.
 				chatInput.disabled = true;
 				chatSubmitBtn.innerHTML = icons.spinner;
 				chatSubmitBtn.classList.add('btn-disabled');
@@ -205,7 +209,6 @@
 					}
 					const data = await response.json();
 					
-					// MODIFIED: Add assistant message to the UI. The scroll is handled by addMessageToUI.
 					addMessageToUI('assistant', data.assistantMessage.content);
 					
 					if (data.files_updated) {
@@ -214,12 +217,14 @@
 					}
 				} catch (error) {
 					console.error('Chat error:', error);
-					// MODIFIED: Set the error flag, store the failed message, and add a more helpful error message.
 					lastResponseWasError = true;
-					lastUserMessage = message; // Store the message that failed.
+					lastUserMessage = message;
 					addMessageToUI('assistant', 'Sorry, an error occurred: ' + error.message + '<br><br><small class="opacity-70">You can try sending your message again by clicking the send button.</small>');
 				} finally {
-					// MODIFIED: Re-enable the input and restore the original button icon.
+					// MODIFIED: Hide the initial build spinner if it was shown.
+					if (initialBuildSpinner.style.display !== 'none') {
+						initialBuildSpinner.style.display = 'none';
+					}
 					chatInput.disabled = false;
 					chatSubmitBtn.innerHTML = icons.send;
 					chatSubmitBtn.classList.remove('btn-disabled');
@@ -229,6 +234,7 @@
 			
 			function refreshPreview() {
 				if (previewIframe) {
+					iframeSpinner.style.display = 'flex'; // NEW: Show spinner before refresh
 					const url = "{{ route('website.preview.serve', $website) }}";
 					previewIframe.src = url + '?t=' + new Date().getTime();
 				}
@@ -254,7 +260,7 @@
 					files = data.files || [];
 					renderFileList();
 					if (!selectedFile && files.length > 0) {
-						const initialFile = files.find(f => f.filename === 'index.php' && f.folder === '/') || files[0];
+						const initialFile = files.find(f => f.filename === 'index.html' && f.folder === '/') || files[0];
 						selectFile(initialFile.id);
 					}
 				} catch (error) {
@@ -384,12 +390,10 @@
 			
 			// --- EVENT LISTENERS ---
 			
-			// MODIFIED: The submit handler now decides whether to resend a failed message or send a new one.
 			chatForm.addEventListener('submit', (e) => {
 				e.preventDefault();
 				const currentMessage = chatInput.value.trim();
 				
-				// If the input is empty and the last response was an error, resend the last message.
 				if (currentMessage === '' && lastResponseWasError) {
 					sendMessage(lastUserMessage);
 				} else {
@@ -397,17 +401,21 @@
 				}
 			});
 			
-			// MODIFIED: The keydown listener now triggers the submit event to avoid duplicating logic.
 			chatInput.addEventListener('keydown', (e) => {
-				// If the user presses Enter without holding Ctrl, submit the form.
 				if (e.key === 'Enter' && !e.ctrlKey) {
-					e.preventDefault(); // Prevent the default action (new line).
+					e.preventDefault();
 					chatForm.dispatchEvent(new Event('submit', { cancelable: true }));
 				}
-				// If Ctrl+Enter is pressed, the default action (new line) is allowed.
 			});
 			
-			if (initialPrompt) { sendMessage(initialPrompt); }
+			// MODIFIED: Check for initial prompt and show the full-screen spinner.
+			if (initialPrompt) {
+				if (initialBuildSpinner) {
+					initialBuildSpinner.style.display = 'flex';
+				}
+				sendMessage(initialPrompt);
+				initialPrompt = null; // NEW: Clear the prompt so it doesn't run again on retry.
+			}
 			
 			const tabs = document.querySelectorAll('[data-tab-content]');
 			tabs.forEach(tabLink => {
@@ -433,9 +441,9 @@
 					panelControls.querySelectorAll('button[data-view]').forEach(btn => btn.classList.remove('active'));
 					button.classList.add('active');
 					if (view === 'mobile') {
-						previewContainer.className = 'mx-auto transition-all duration-300 ease-in-out w-[375px] h-[667px] max-w-full max-h-full overflow-hidden rounded-lg shadow-lg border-4 border-neutral';
+						previewContainer.className = 'relative mx-auto transition-all duration-300 ease-in-out w-[375px] h-[667px] max-w-full max-h-full overflow-hidden rounded-lg shadow-lg border-4 border-neutral';
 					} else {
-						previewContainer.className = 'mx-auto transition-all duration-300 ease-in-out w-full h-full';
+						previewContainer.className = 'relative mx-auto transition-all duration-300 ease-in-out w-full h-full';
 					}
 				}
 				
@@ -478,15 +486,41 @@
 				});
 			}
 			
+			// NEW: Add event listeners for the iframe to manage its loading spinner
+			if (previewIframe) {
+				// When the iframe finishes loading, hide the spinner.
+				previewIframe.addEventListener('load', () => {
+					iframeSpinner.style.display = 'none';
+					
+					// Add click listeners to links inside the iframe to show the spinner on navigation.
+					try {
+						const iframeDoc = previewIframe.contentDocument || previewIframe.contentWindow.document;
+						if (iframeDoc) {
+							iframeDoc.body.addEventListener('click', (e) => {
+								const link = e.target.closest('a');
+								if (link && link.href && link.target !== '_blank' && link.origin === window.location.origin) {
+									iframeSpinner.style.display = 'flex';
+								}
+							});
+						}
+					} catch (error) {
+						console.warn('Could not attach click listener to iframe content:', error);
+					}
+				});
+				
+				// A fallback for when the iframe starts to unload, show the spinner.
+				if (previewIframe.contentWindow) {
+					previewIframe.contentWindow.addEventListener('beforeunload', () => {
+						iframeSpinner.style.display = 'flex';
+					});
+				}
+			}
+			
 			// --- INITIALIZATION ---
 			
-			// NEW: Set the initial icon for the chat submit button.
 			chatSubmitBtn.innerHTML = icons.send;
-			
 			renderPanelControls('preview-content');
 			fetchFiles();
-			
-			// NEW: Scroll the chat to the bottom when the page first loads.
 			scrollChatToBottom();
 		});
 	</script>
