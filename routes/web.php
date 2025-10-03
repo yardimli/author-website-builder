@@ -59,6 +59,7 @@
 		Route::post('/profile/import/store', [ImportController::class, 'importBook'])->name('profile.import.store');
 
 		// Website management routes
+		Route::get('/websites/create', [WebsiteController::class, 'create'])->name('websites.create'); // NEW: Route to show the create form.
 		Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
 		Route::get('/websites/{website:slug}', [WebsiteController::class, 'show'])->name('websites.show');
 		Route::patch('/websites/{website:slug}/slug', [WebsiteController::class, 'updateSlug'])->name('websites.slug.update');

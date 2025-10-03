@@ -12,7 +12,7 @@
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Validation\Rule;
 	use Illuminate\View\View;
-	use Illuminate\Support\Str; // NEW: Import the Str helper
+	use Illuminate\Support\Str;
 
 	class WebsiteController extends Controller
 	{
@@ -30,14 +30,7 @@
 			$hasBooks = $user->books->count() > 0;
 			$prerequisitesMet = $profileComplete && $hasBooks;
 
-			// NEW: Generate a suggested, unique slug for the "create website" form.
-			$suggestedSlug = Str::slug($user->name . '-new-site');
-			$counter = 1;
-			$originalSlug = $suggestedSlug;
-			while (Website::where('slug', $suggestedSlug)->exists()) {
-				$suggestedSlug = $originalSlug . '-' . $counter;
-				$counter++;
-			}
+			// MODIFIED: Removed suggested slug generation as it's now handled in the create() method.
 
 			// MODIFIED: Render the 'dashboard' Blade view and pass the necessary data.
 			return view('dashboard', [
@@ -47,12 +40,43 @@
 				'prerequisitesMet' => $prerequisitesMet,
 				'profileComplete' => $profileComplete,
 				'hasBooks' => $hasBooks,
-				'suggestedSlug' => $suggestedSlug, // NEW: Pass suggested slug to the view
 				'auth' => [
 					'user' => $user
 				]
 			]);
 		}
+
+		/**
+		 * NEW: Show the form for creating a new website.
+		 */
+		public function create(): View
+		{
+			$user = Auth::user()->load('books');
+
+			// Perform prerequisite checks before showing the form.
+			$profileComplete = !empty($user->name) && !empty($user->bio);
+			$hasBooks = $user->books->count() > 0;
+			if (!$profileComplete || !$hasBooks) {
+				// Redirect back to the dashboard with an error if prerequisites are not met.
+				return redirect()->route('dashboard')->with('error', 'Please complete your profile and add at least one book before creating a website.');
+			}
+
+			// Generate a suggested, unique slug for the "create website" form.
+			$suggestedSlug = Str::slug($user->name . '-new-site');
+			$counter = 1;
+			$originalSlug = $suggestedSlug;
+			while (Website::where('slug', $suggestedSlug)->exists()) {
+				$suggestedSlug = $originalSlug . '-' . $counter;
+				$counter++;
+			}
+
+			// Render the 'websites.create' view and pass the necessary data.
+			return view('websites.create', [
+				'userBooks' => $user->books,
+				'suggestedSlug' => $suggestedSlug,
+			]);
+		}
+
 
 		/**
 		 * Store a newly created website in storage.

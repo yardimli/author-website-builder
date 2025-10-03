@@ -56,13 +56,13 @@
 						</div>
 					@endif
 					
-					{{-- MODIFIED: Replaced inline form with a button that opens a modal --}}
+					{{-- MODIFIED: Changed button to a link pointing to the new create page. --}}
 					@if($prerequisitesMet)
 						<div class="mb-6">
-							<button class="btn btn-primary" onclick="create_website_modal.showModal()">
+							<a href="{{ route('websites.create') }}" class="btn btn-primary">
 								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
 								Create New Website
-							</button>
+							</a>
 						</div>
 					@endif
 					
@@ -135,110 +135,7 @@
 		</div>
 	</div>
 	
-	{{-- NEW: Modal for creating a new website --}}
-	<dialog id="create_website_modal" class="modal">
-		<div class="modal-box w-11/12 max-w-3xl">
-			<form method="dialog">
-				<button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-			</form>
-			<h3 class="font-bold text-lg">Create a New Website</h3>
-			<p class="py-2 text-sm">Configure your new project.</p>
-			<div class="divider"></div>
-			
-			<form method="POST" action="{{ route('websites.store') }}" class="space-y-4 pt-2">
-				@csrf
-				{{-- Website Name --}}
-				<div>
-					<label class="label" for="name">
-						<span class="label-text">Website Name *</span>
-					</label>
-					<input type="text" id="name" name="name" placeholder="My Awesome Author Site" class="input input-bordered w-full" required value="{{ old('name') }}" />
-					@error('name')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-				</div>
-				
-				{{-- Website URL/Slug Input --}}
-				<div>
-					<label class="label" for="slug">
-						<span class="label-text">Website URL *</span>
-					</label>
-					<div class="join w-full">
-						<span class="join-item btn btn-disabled !bg-base-300 !border-base-300 text-base-content/50">{{ url('/website') }}/</span>
-						<input type="text" id="slug" name="slug" placeholder="my-awesome-site" class="input input-bordered join-item w-full" required value="{{ old('slug', $suggestedSlug) }}" />
-					</div>
-					<div id="slug-feedback" class="text-sm mt-1 h-5"></div>
-					@error('slug')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-				</div>
-				
-				{{-- MODIFIED: Website Style Dropdown with custom option --}}
-				<div>
-					<label class="label" for="website_style">
-						<span class="label-text">Website Style *</span>
-					</label>
-					<select name="website_style" id="website_style" class="select select-bordered w-full" required>
-						<option disabled selected value="">Select a visual style</option>
-						<option value="Modern & Minimal" @selected(old('website_style') == 'Modern & Minimal')>Modern & Minimal</option>
-						<option value="Classic & Elegant" @selected(old('website_style') == 'Classic & Elegant')>Classic & Elegant</option>
-						<option value="Dark & Mysterious" @selected(old('website_style') == 'Dark & Mysterious')>Dark & Mysterious (for Thrillers/Fantasy)</option>
-						<option value="Whimsical & Fun" @selected(old('website_style') == 'Whimsical & Fun')>Whimsical & Fun (for Children's/Comedy)</option>
-						<option value="Bold & Action-Packed" @selected(old('website_style') == 'Bold & Action-Packed')>Bold & Action-Packed (for Sci-Fi/Action)</option>
-						<option value="Professional & Informative" @selected(old('website_style') == 'Professional & Informative')>Professional & Informative (for Non-Fiction)</option>
-						<option value="Custom" @selected(old('website_style') == 'Custom')>I want to describe the style myself...</option>
-					</select>
-					@error('website_style')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-				</div>
-				
-				{{-- NEW: Custom Website Style Input (initially hidden) --}}
-				<div id="custom-style-container" style="display: none;">
-					<label class="label" for="custom_website_style">
-						<span class="label-text">Describe Your Desired Style *</span>
-					</label>
-					<input type="text" id="custom_website_style" name="custom_website_style" placeholder="e.g., 'A vintage sci-fi look with typewriter fonts'" class="input input-bordered w-full" value="{{ old('custom_website_style') }}" />
-					@error('custom_website_style')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-				</div>
-				
-				{{-- Primary Book --}}
-				<div>
-					<label class="label" for="primary_book_id">
-						<span class="label-text">Primary Book *</span>
-					</label>
-					<select name="primary_book_id" id="primary_book_select" class="select select-bordered w-full" required>
-						<option disabled selected value="">Select the main book to feature</option>
-						@foreach($userBooks as $book)
-							<option value="{{ $book->id }}" @selected(old('primary_book_id') == $book->id)>
-								{{ $book->title }} {{ $book->series_name ? "({$book->series_name} #{$book->series_number})" : '' }}
-							</option>
-						@endforeach
-					</select>
-					@error('primary_book_id')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-				</div>
-				
-				{{-- Featured Books --}}
-				@if(count($userBooks) > 1)
-					<div class="space-y-2 pt-2">
-						<label class="label"><span class="label-text">Additional Books (Optional)</span></label>
-						<p class="text-sm opacity-70 -mt-2">Select other books to showcase on the website.</p>
-						<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-							@foreach($userBooks as $book)
-								<div class="form-control">
-									<label class="label cursor-pointer justify-start gap-4">
-										<input type="checkbox" name="featured_book_ids[]" value="{{ $book->id }}" class="checkbox featured-book-checkbox" @checked(is_array(old('featured_book_ids')) && in_array($book->id, old('featured_book_ids')))>
-										<span class="label-text">{{ $book->title }}</span>
-									</label>
-								</div>
-							@endforeach
-						</div>
-						@error('featured_book_ids.*')<p class="text-error text-sm mt-1">{{ $message }}</p>@enderror
-					</div>
-				@endif
-				
-				<div class="modal-action pt-4">
-					<form method="dialog"><button class="btn">Cancel</button></form>
-					<button type="submit" class="btn btn-primary">Create Website</button>
-				</div>
-			</form>
-		</div>
-		<form method="dialog" class="modal-backdrop"><button>close</button></form>
-	</dialog>
+	{{-- MODIFIED: The modal for creating a website has been removed from this file. --}}
 @endsection
 
 @push('scripts')
@@ -304,19 +201,7 @@
 				}, 500); // 500ms debounce
 			};
 			
-			// MODIFIED: Target the form inside the new modal
-			const createForm = document.querySelector('#create_website_modal form[action="{{ route("websites.store") }}"]');
-			if (createForm) {
-				const createFormSlugInput = createForm.querySelector('#slug');
-				const createFormSlugFeedback = createForm.querySelector('#slug-feedback');
-				const createFormSubmitBtn = createForm.querySelector('button[type="submit"]');
-				if (createFormSlugInput && createFormSlugFeedback && createFormSubmitBtn) {
-					createFormSlugInput.addEventListener('input', () => {
-						handleSlugInput(createFormSlugInput, createFormSlugFeedback, createFormSubmitBtn);
-					});
-				}
-			}
-			
+			// MODIFIED: Removed the script logic for the create website modal.
 			
 			// For all "Update Slug" modals
 			document.querySelectorAll('.slug-update-form').forEach(form => {
@@ -331,58 +216,6 @@
 					});
 				}
 			});
-			
-			// MODIFIED: Target the primary book select inside the new modal
-			const primaryBookSelect = document.querySelector('#create_website_modal #primary_book_select');
-			const featuredBookCheckboxes = document.querySelectorAll('#create_website_modal .featured-book-checkbox');
-			
-			if (primaryBookSelect && featuredBookCheckboxes.length > 0) {
-				const syncFeaturedBooks = () => {
-					const selectedPrimaryId = primaryBookSelect.value;
-					
-					featuredBookCheckboxes.forEach(checkbox => {
-						const parentLabel = checkbox.closest('label');
-						if (checkbox.value === selectedPrimaryId) {
-							checkbox.checked = false;
-							checkbox.disabled = true;
-							if (parentLabel) {
-								parentLabel.classList.add('opacity-50', 'cursor-not-allowed');
-							}
-						} else {
-							checkbox.disabled = false;
-							if (parentLabel) {
-								parentLabel.classList.remove('opacity-50', 'cursor-not-allowed');
-							}
-						}
-					});
-				};
-				
-				// Run on initial load to handle validation errors and old input
-				syncFeaturedBooks();
-				
-				// Run whenever the primary book selection changes
-				primaryBookSelect.addEventListener('change', syncFeaturedBooks);
-			}
-			
-			// --- NEW: Logic for custom website style input ---
-			const websiteStyleSelect = document.querySelector('#create_website_modal #website_style');
-			const customStyleContainer = document.querySelector('#create_website_modal #custom-style-container');
-			
-			if (websiteStyleSelect && customStyleContainer) {
-				const toggleCustomStyleInput = () => {
-					if (websiteStyleSelect.value === 'Custom') {
-						customStyleContainer.style.display = 'block';
-					} else {
-						customStyleContainer.style.display = 'none';
-					}
-				};
-				
-				// Run on initial load to handle old input from validation errors
-				toggleCustomStyleInput();
-				
-				// Run whenever the style selection changes
-				websiteStyleSelect.addEventListener('change', toggleCustomStyleInput);
-			}
 		});
 	</script>
 @endpush
