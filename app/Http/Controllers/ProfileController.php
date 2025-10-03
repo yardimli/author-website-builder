@@ -23,13 +23,20 @@
 	{
 		/**
 		 * Display the user's core profile form.
+		 * MODIFIED: Now handles the wizard flow.
 		 */
 		public function edit(Request $request): View
 		{
+			// NEW: Check if this is part of the wizard flow.
+			$isWizard = $request->has('wizard');
+			$wizardStep = $isWizard ? 2 : 0;
+
 			return view('profile.edit', [
 				'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
 				'status' => session('status'),
 				'user' => $request->user(),
+				'isWizard' => $isWizard, // NEW
+				'wizardStep' => $wizardStep, // NEW
 			]);
 		}
 
@@ -55,6 +62,7 @@
 
 		/**
 		 * Update the user's core profile information (name, email).
+		 * MODIFIED: Redirects to the next wizard step if applicable.
 		 */
 		public function update(ProfileUpdateRequest $request): RedirectResponse
 		{
@@ -66,11 +74,17 @@
 
 			$request->user()->save();
 
+			// NEW: If in wizard mode, redirect to the next step.
+			if ($request->has('is_wizard')) {
+				return Redirect::route('websites.create', ['wizard' => '3']);
+			}
+
 			return Redirect::route('profile.edit')->with('status', 'profile-information-updated');
 		}
 
 		/**
 		 * Update the user's profile photo.
+		 * MODIFIED: Redirects to the next wizard step if applicable.
 		 */
 		public function updateProfilePhoto(Request $request): RedirectResponse
 		{
@@ -93,6 +107,11 @@
 				'profile_photo_path' => $path,
 			])->save();
 
+			// NEW: If in wizard mode, redirect to the next step.
+			if ($request->has('is_wizard')) {
+				return Redirect::route('websites.create', ['wizard' => '3']);
+			}
+
 			return Redirect::route('profile.edit')->with('status', 'profile-photo-updated');
 		}
 
@@ -108,11 +127,17 @@
 				$user->forceFill(['profile_photo_path' => null])->save();
 			}
 
+			// NEW: If in wizard mode, redirect to the next step.
+			if ($request->has('is_wizard')) {
+				return Redirect::route('websites.create', ['wizard' => '3']);
+			}
+
 			return Redirect::route('profile.edit')->with('status', 'profile-photo-deleted');
 		}
 
 		/**
 		 * Update the user's bio.
+		 * MODIFIED: Redirects to the next wizard step if applicable.
 		 */
 		public function updateBio(Request $request): RedirectResponse
 		{
@@ -123,6 +148,11 @@
 			$request->user()->forceFill([
 				'bio' => $request->input('bio'),
 			])->save();
+
+			// NEW: If in wizard mode, redirect to the next step.
+			if ($request->has('is_wizard')) {
+				return Redirect::route('websites.create', ['wizard' => '3']);
+			}
 
 			return Redirect::route('profile.edit')->with('status', 'profile-bio-updated');
 		}

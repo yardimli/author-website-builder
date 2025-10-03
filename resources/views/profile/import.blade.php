@@ -4,6 +4,11 @@
 	<div class="py-12">
 		<div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
 			<div class="p-4 sm:p-8 bg-base-100 shadow sm:rounded-lg">
+				{{-- NEW: Conditionally display the wizard header --}}
+				@if($isWizard)
+					@include('partials.wizard-header', ['step' => $wizardStep])
+				@endif
+				
 				<header class="flex justify-between items-center">
 					<div>
 						<h2 class="text-lg font-medium text-base-content">Import from BookCoverZone</h2>
@@ -11,8 +16,20 @@
 							Search for and import your previously created book covers and data.
 						</p>
 					</div>
-					<a href="{{ route('profile.books.edit') }}" class="btn btn-ghost">&larr; Back to Books</a>
+					{{-- MODIFIED: Hide the back button during the wizard --}}
+					@if(!$isWizard)
+						<a href="{{ route('profile.books.edit') }}" class="btn btn-ghost">&larr; Back to Books</a>
+					@endif
 				</header>
+				
+				{{-- NEW: Add a skip button for the wizard --}}
+				@if($isWizard)
+					<div class="text-center my-4">
+						<a href="{{ route('profile.edit', ['wizard' => '2']) }}" class="btn btn-outline">
+							Skip and Add Books Manually Later &rarr;
+						</a>
+					</div>
+				@endif
 				
 				{{-- Search Input --}}
 				<div class="mt-6">
@@ -55,7 +72,10 @@
 				<form method="dialog">
 					<button class="btn">Cancel</button>
 				</form>
-				<button id="confirm-import-btn" class="btn btn-primary">Yes, Import</button>
+				{{-- MODIFIED: The button text changes during the wizard --}}
+				<button id="confirm-import-btn" class="btn btn-primary">
+					{{ $isWizard ? 'Import and Continue' : 'Yes, Import' }}
+				</button>
 			</div>
 		</div>
 		<form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -91,6 +111,7 @@
 			const importSuccessModal = document.getElementById('import_success_modal'); // NEW: Get success modal
 			
 			const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+			const isWizard = @json($isWizard); // NEW: Get wizard status
 			let debounceTimer;
 			let currentImportData = null;
 			let pageBooks = []; // NEW: Array to hold book data for the current page.
@@ -234,6 +255,7 @@
 						body: JSON.stringify({
 							bookData: currentImportData,
 							updateProfile: updateProfileCheckbox.checked,
+							is_wizard: isWizard, // NEW: Send wizard status
 						}),
 					});
 					
@@ -241,6 +263,12 @@
 					
 					if (!response.ok) {
 						throw new Error(data.message || 'Failed to import book.');
+					}
+					
+					// NEW: If in wizard mode, redirect to the next step.
+					if (data.redirectUrl) {
+						window.location.href = data.redirectUrl;
+						return; // Stop execution to allow redirect
 					}
 					
 					importModal.close();

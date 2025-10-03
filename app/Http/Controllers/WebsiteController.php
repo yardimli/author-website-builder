@@ -5,6 +5,7 @@
 	use App\Models\Website;
 	use App\Models\WebsiteFile;
 	use App\Models\Book;
+	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
 	use Illuminate\Support\Facades\DB; // MODIFIED: Import DB facade
@@ -19,10 +20,17 @@
 		/**
 		 * Display a listing of the user's websites (Dashboard).
 		 * MODIFIED: This method now returns a Blade View instead of an Inertia response.
+		 * MODIFIED: Redirects to a setup wizard if the user has no books or websites.
 		 */
-		public function index(): View
+		public function index(): View|RedirectResponse // MODIFIED: Update return type
 		{
 			$user = Auth::user()->load('websites', 'books');
+
+			// NEW: Check if it's a new user (no books and no websites) and redirect to the wizard.
+			if ($user->books->isEmpty() && $user->websites->isEmpty()) {
+				return redirect()->route('profile.import', ['wizard' => '1']);
+			}
+
 			$websites = $user->websites()->orderBy('created_at', 'desc')->get();
 
 			// Check profile completeness
@@ -48,8 +56,9 @@
 
 		/**
 		 * NEW: Show the form for creating a new website.
+		 * MODIFIED: Now accepts a request to handle the wizard flow.
 		 */
-		public function create(): View
+		public function create(Request $request): View|RedirectResponse // MODIFIED: Update return type and add Request
 		{
 			$user = Auth::user()->load('books');
 
@@ -70,10 +79,16 @@
 				$counter++;
 			}
 
+			// NEW: Check if this is part of the wizard flow.
+			$isWizard = $request->has('wizard');
+			$wizardStep = $isWizard ? 3 : 0;
+
 			// Render the 'websites.create' view and pass the necessary data.
 			return view('websites.create', [
 				'userBooks' => $user->books,
 				'suggestedSlug' => $suggestedSlug,
+				'isWizard' => $isWizard, // NEW
+				'wizardStep' => $wizardStep, // NEW
 			]);
 		}
 

@@ -20,6 +20,10 @@
 		{{-- Form for uploading a new photo --}}
 		<form method="post" action="{{ route('profile.photo.update') }}" class="flex-grow space-y-2" enctype="multipart/form-data">
 			@csrf
+			{{-- NEW: Add hidden input if in wizard mode --}}
+			@if(isset($isWizard) && $isWizard)
+				<input type="hidden" name="is_wizard" value="1">
+			@endif
 			<input type="file" name="photo" class="file-input file-input-bordered w-full max-w-xs" />
 			@error('photo')
 			<p class="text-error text-sm mt-1">{{ $message }}</p>
@@ -32,6 +36,10 @@
 			<form method="post" action="{{ route('profile.photo.delete') }}" onsubmit="return confirm('Are you sure you want to remove your profile photo?');">
 				@csrf
 				@method('delete')
+				{{-- NEW: Add hidden input if in wizard mode --}}
+				@if(isset($isWizard) && $isWizard)
+					<input type="hidden" name="is_wizard" value="1">
+				@endif
 				<button type="submit" class="btn btn-sm btn-error btn-outline">{{ __('Remove') }}</button>
 			</form>
 		@endif

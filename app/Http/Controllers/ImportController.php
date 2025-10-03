@@ -21,10 +21,18 @@
 	{
 		/**
 		 * Display the book import page.
+		 * MODIFIED: Now accepts a request to handle the wizard flow.
 		 */
-		public function showImportForm(): View
+		public function showImportForm(Request $request): View // MODIFIED: Add Request
 		{
-			return view('profile.import');
+			// NEW: Check if this is part of the wizard flow.
+			$isWizard = $request->has('wizard');
+			$wizardStep = $isWizard ? 1 : 0;
+
+			return view('profile.import', [
+				'isWizard' => $isWizard, // NEW
+				'wizardStep' => $wizardStep, // NEW
+			]);
 		}
 
 		/**
@@ -245,6 +253,7 @@
 
 		/**
 		 * Import a single book from BookCoverZone data.
+		 * MODIFIED: Returns a redirect URL if in wizard mode.
 		 */
 		public function importBook(Request $request): JsonResponse
 		{
@@ -261,10 +270,12 @@
 				'bookData.author_bio' => 'nullable|string|max:5000',
 				'bookData.author_photo_url' => 'nullable|url',
 				'updateProfile' => 'required|boolean',
+				'is_wizard' => 'boolean', // NEW: Check if the request is from the wizard
 			]);
 
 			$bookData = $validated['bookData'];
 			$updateProfile = $validated['updateProfile'];
+			$isWizard = $validated['is_wizard'] ?? false; // NEW
 
 			try {
 				// 1. Download front cover image
@@ -322,7 +333,14 @@
 					}
 				}
 
-				return response()->json(['success' => true, 'message' => 'Book imported successfully!']);
+				// NEW: Prepare response
+				$response = ['success' => true, 'message' => 'Book imported successfully!'];
+				if ($isWizard) {
+					$response['redirectUrl'] = route('profile.edit', ['wizard' => '2']);
+				}
+
+				return response()->json($response);
+
 			} catch (\Exception $e) {
 				Log::error('Error during book import for user ' . $user->id, [
 					'message' => $e->getMessage(),

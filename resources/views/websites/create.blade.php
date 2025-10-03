@@ -6,6 +6,11 @@
 		<div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 			<div class="bg-base-100 overflow-hidden shadow-sm sm:rounded-lg">
 				<div class="p-6 sm:p-8 text-base-content">
+					{{-- NEW: Conditionally display the wizard header --}}
+					@if($isWizard)
+						@include('partials.wizard-header', ['step' => $wizardStep])
+					@endif
+					
 					<header class="flex justify-between items-center">
 						<div>
 							<h2 class="text-lg font-medium text-base-content">Create a New Website</h2>
@@ -13,7 +18,10 @@
 								Configure your new project. The AI will use this information for the initial build.
 							</p>
 						</div>
-						<a href="{{ route('dashboard') }}" class="btn btn-ghost">&larr; Back to Dashboard</a>
+						{{-- MODIFIED: Hide back button during wizard --}}
+						@if(!$isWizard)
+							<a href="{{ route('dashboard') }}" class="btn btn-ghost">&larr; Back to Dashboard</a>
+						@endif
 					</header>
 					
 					<div class="divider mt-4 mb-6"></div>
@@ -105,8 +113,15 @@
 						@endif
 						
 						<div class="pt-6 flex items-center gap-4">
-							<button type="submit" class="btn btn-primary">Create Website</button>
-							<a href="{{ route('dashboard') }}" class="btn btn-ghost">Cancel</a>
+							<button type="submit" class="btn btn-primary">
+								{{ $isWizard ? 'Finish & Create Website' : 'Create Website' }}
+							</button>
+							{{-- MODIFIED: Show Cancel or Finish Later button --}}
+							@if($isWizard)
+								<a href="{{ route('dashboard') }}" class="btn btn-ghost">Finish Later</a>
+							@else
+								<a href="{{ route('dashboard') }}" class="btn btn-ghost">Cancel</a>
+							@endif
 						</div>
 					</form>
 				</div>

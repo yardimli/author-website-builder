@@ -12,6 +12,10 @@
 	<form id="bio-form" method="post" action="{{ route('profile.bio.update') }}" class="mt-6 space-y-6">
 		@csrf
 		@method('patch')
+		{{-- NEW: Add hidden input if in wizard mode --}}
+		@if(isset($isWizard) && $isWizard)
+			<input type="hidden" name="is_wizard" value="1">
+		@endif
 		
 		<div>
 			<label for="bio" class="label">

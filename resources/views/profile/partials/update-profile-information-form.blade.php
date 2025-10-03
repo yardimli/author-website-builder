@@ -10,13 +10,17 @@
 	</header>
 	
 	{{-- This form is used for re-sending the verification email --}}
-{{--	<form id="send-verification" method="post" action="{{ route('verification.send') }}">--}}
-{{--		@csrf--}}
-{{--	</form>--}}
+	{{--	<form id="send-verification" method="post" action="{{ route('verification.send') }}">--}}
+	{{--		@csrf--}}
+	{{--	</form>--}}
 	
 	<form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
 		@csrf
 		@method('patch')
+		{{-- NEW: Add hidden input if in wizard mode --}}
+		@if(isset($isWizard) && $isWizard)
+			<input type="hidden" name="is_wizard" value="1">
+		@endif
 		
 		{{-- Name Field --}}
 		<div>
