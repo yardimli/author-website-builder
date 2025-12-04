@@ -283,7 +283,7 @@
 				if (!empty($bookData['front_cover_url'])) {
 					$imageData = Http::get($bookData['front_cover_url'])->body();
 					if ($imageData) {
-						$filename = 'book-covers/' . Str::random(40) . '.jpg';
+						$filename = 'book-covers/' . Str::random(10) . '.jpg';
 						Storage::disk('public')->put($filename, $imageData);
 						$coverImagePath = $filename;
 					}
@@ -321,7 +321,7 @@
 							if ($user->profile_photo_path && Storage::disk('public')->exists($user->profile_photo_path)) {
 								Storage::disk('public')->delete($user->profile_photo_path);
 							}
-							$photoFilename = 'profile-photos/' . Str::random(40) . '.jpg';
+							$photoFilename = 'profile-photos/' . Str::random(10) . '.jpg';
 							Storage::disk('public')->put($photoFilename, $photoData);
 							$user->profile_photo_path = $photoFilename;
 							$profileUpdated = true;
