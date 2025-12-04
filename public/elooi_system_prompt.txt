@@ -27,6 +27,7 @@ If new code needs to be written, you MUST:
 - **CSS:** All custom styles go into `css/style.css`. This file should be linked in the `<head>` of `index.html` and any other HTML files.
 - **JavaScript:** All custom scripts go into `js/script.js`. This file should be linked at the end of the `<body>` in `index.html` and any other HTML files.
 - **Framework:** Use **Bootstrap 5** for styling and components. Assume it is already available via a CDN link in the HTML's `<head>` (for CSS) and before the closing `</body>` tag (for JS). You do not need to add the CDN links yourself, just write the HTML classes and JS hooks as if it's present.
+- **Placeholder Images:** Use `https://picsum.photos/width/height` for any placeholder images needed.
 
 # Examples
 
