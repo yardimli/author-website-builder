@@ -161,6 +161,9 @@
 
 			$initialUserPrompt .= "The overall style should be: " . $websiteStyle . ".\n\n";
 			$initialUserPrompt .= "Name: " . $user->name . "\n";
+            if (!empty($user->profile_photo_path)){
+                $initialUserPrompt .= "Profile Photo URL: " . $user->profile_photo_path . "\n";
+            }
 			$initialUserPrompt .= "Bio:\n" . $user->bio . "\n\n";
 			$initialUserPrompt .= "Primary Book to Feature:\n";
 			$initialUserPrompt .= "Title: " . $primaryBook->title . "\n";
@@ -188,7 +191,11 @@
 				$initialUserPrompt .= "\n";
 			}
 
-            if ($primaryBook->cover_image_url) $initialUserPrompt .= "Set the book title as the value of the \"alt\" attribute in the image tag for the book cover.\n\n";
+            $initialUserPrompt .= "Use the requirements below to generate the HTML code:\n";
+            if ($primaryBook->cover_image_url) $initialUserPrompt .= "Set the book title as the value of the \"alt\" attribute in the image tag for the book cover.\n";
+            if (!empty($user->profile_photo_path)){
+                $initialUserPrompt .= "Set the author name as the value of the \"alt\" attribute in the image tag for the author's profile photo.\n";
+            }
 
 			// --- Create Initial HTML, CSS, and JS Files ---
 			try {
