@@ -188,6 +188,8 @@
 				$initialUserPrompt .= "\n";
 			}
 
+            if ($primaryBook->cover_image_url) $initialUserPrompt .= "Set the book title as the value of the \"alt\" attribute in the image tag for the book cover.\n\n";
+
 			// --- Create Initial HTML, CSS, and JS Files ---
 			try {
 				// MODIFIED: Create a complete, minimal index.html file

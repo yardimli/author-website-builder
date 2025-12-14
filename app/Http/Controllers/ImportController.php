@@ -283,7 +283,15 @@
 				if (!empty($bookData['front_cover_url'])) {
 					$imageData = Http::get($bookData['front_cover_url'])->body();
 					if ($imageData) {
-						$filename = 'book-covers/' . Str::random(10) . '.jpg';
+                        $decodedTitle = htmlspecialchars_decode($bookData['title']);
+                        $decodedAuthor = !empty($bookData['author']) ? htmlspecialchars_decode($bookData['author']) : 'unknown-author';
+                        $slugTitle = Str::slug($decodedTitle);
+                        $slugAuthor = Str::slug($decodedAuthor);
+                        $slugTitle = $slugTitle ?: 'book-title'.Str::random(10);
+                        $slugAuthor = $slugAuthor ?: 'author'.Str::random(5);
+                        $filename = 'book-covers/' . $slugAuthor . '_' . $slugTitle . '.jpg';
+
+                        //$filename = 'book-covers/' . Str::random(10) . '.jpg';
 						Storage::disk('public')->put($filename, $imageData);
 						$coverImagePath = $filename;
 					}
