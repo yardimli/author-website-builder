@@ -146,12 +146,12 @@
 				// --- MODIFIED: END ---
 
                 // Fetch the last 12 messages (6 pairs) strictly before the current one we just created.
-                $history = $website->chatMessages()
-                    ->where('website_id', $website->id)
+                $history = ChatMessage::where('website_id', $website->id)
+                    ->where('id', '<', $userMessage->id)
                     ->orderBy('id', 'desc')
                     ->take(12) // 6 pairs
                     ->get()
-                    ->reverse(); // Flip to chronological order (Oldest -> Newest)
+                    ->reverse(); // Chronological order
 
                 $chat_messages = [];
 
