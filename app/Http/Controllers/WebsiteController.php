@@ -162,7 +162,11 @@
 			$initialUserPrompt .= "The overall style should be: " . $websiteStyle . ".\n\n";
 			$initialUserPrompt .= "Name: " . $user->name . "\n";
             if (!empty($user->profile_photo_path)){
-                $initialUserPrompt .= "Profile Photo URL: " . $user->profile_photo_path . "\n";
+                $photoUrl = $user->profile_photo_url;
+                if (!str_starts_with($user->profile_photo_url, 'http://') && !str_starts_with($user->profile_photo_url, 'https://')) {
+                    $photoUrl = asset('storage/' . $user->profile_photo_url);
+                }
+                $initialUserPrompt .= "Author Photo URL(Profile Photo URL): " . $photoUrl . "\n";
             }
 			$initialUserPrompt .= "Bio:\n" . $user->bio . "\n\n";
 			$initialUserPrompt .= "Primary Book to Feature:\n";

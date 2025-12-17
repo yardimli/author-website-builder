@@ -102,7 +102,11 @@
 				$authorContext .= "Author Bio:\n" . ($user->bio ?? 'N/A') . "\n";
 				// MODIFIED: Include the author's profile photo URL if it exists.
 				if ($user->profile_photo_url) {
-					$authorContext .= "Author Photo URL: " . $user->profile_photo_url . "\n";
+                    $photoUrl = $user->profile_photo_url;
+                    if (!str_starts_with($user->profile_photo_url, 'http://') && !str_starts_with($user->profile_photo_url, 'https://')) {
+                        $photoUrl = asset('storage/' . $user->profile_photo_url);
+                    }
+					$authorContext .= "Author Photo URL(Profile Photo URL): " . $photoUrl . "\n";
 				}
 				$authorContext .= "\n";
 
@@ -141,7 +145,27 @@
 				$llmUserInput = $authorContext . $fileContext . "\n\n---\n\nUser Request:\n" . $validated['message'];
 				// --- MODIFIED: END ---
 
-				$chat_messages = [['role' => 'user', 'content' => $llmUserInput]];
+                // Fetch the last 12 messages (6 pairs) strictly before the current one we just created.
+                $history = $website->chatMessages()
+                    ->where('website_id', $website->id)
+                    ->orderBy('id', 'desc')
+                    ->take(12) // 6 pairs
+                    ->get()
+                    ->reverse(); // Flip to chronological order (Oldest -> Newest)
+
+                $chat_messages = [];
+
+                // Add history to the messages array
+                foreach ($history as $msg) {
+                    $chat_messages[] = [
+                        'role' => $msg->role,
+                        'content' => $msg->content
+                    ];
+                }
+
+                // Append the current turn with the full context context
+                $chat_messages[] = ['role' => 'user', 'content' => $llmUserInput];
+
 				$llmModel = $website->llm_model ?? env('DEFAULT_LLM', 'google/gemini-2.5-flash-preview-09-2025');
 
 				// 3. Call LLM
