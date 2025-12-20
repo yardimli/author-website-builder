@@ -14,11 +14,13 @@
 			'website_id',
 			'role',
 			'content',
+            'prompt_images_ids',
 		];
 
 		protected $casts = [
 			'created_at' => 'datetime',
 			'updated_at' => 'datetime',
+            'prompt_images_ids' => 'array',
 		];
 
 		public function website(): BelongsTo
