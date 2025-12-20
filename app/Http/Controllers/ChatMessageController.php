@@ -76,9 +76,32 @@ class ChatMessageController extends Controller
                 $originalName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
                 $extension = $file->getClientOriginalExtension();
 
-                // Sanitize filename
-                $sanitizedFilename = Str::slug($originalName) . '.' . $extension;
-                $imagePath = 'website-user-images/' . $sanitizedFilename;
+                // Sanitize filename and fallback if empty
+                $slugName = Str::slug($originalName);
+                if (empty($slugName)) {
+                    $slugName = 'image-' . Str::random(4);
+                }
+
+                $folderPath = 'website-user-images/';
+                $finalFilename = $slugName . '.' . $extension;
+
+                // Standard filename deduplication logic (filename(1).ext, filename(2).ext)
+                if (Storage::disk('public')->exists($folderPath . $finalFilename)) {
+                    $counter = 1;
+                    while (true) {
+                        // Construct the candidate filename: name(1).ext
+                        $candidateFilename = $slugName . '(' . $counter . ').' . $extension;
+
+                        // Check if this specific version exists
+                        if (!Storage::disk('public')->exists($folderPath . $candidateFilename)) {
+                            $finalFilename = $candidateFilename;
+                            break; // Found a unique name
+                        }
+                        $counter++;
+                    }
+                }
+
+                $imagePath = $folderPath . $finalFilename;
 
                 // Save to storage
                 Storage::disk('public')->put($imagePath, file_get_contents($file));
