@@ -400,10 +400,10 @@ CSS;
 			$this->authorize('update', $website);
 
 			$validated = $request->validate([
-				'steps' => 'required|integer|min:1',
+				'steps' => 'nullable|integer|min:1',
 			]);
 
-			$stepsToRevert = $validated['steps'];
+			$stepsToRevert = $validated['steps'] ?? 1;
 
 			DB::beginTransaction();
 			try {

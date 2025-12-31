@@ -176,8 +176,12 @@ class ChatMessageController extends Controller
             $authorContext .= "Author Name: " . ($user->name ?? 'N/A') . "\n";
             $authorContext .= "Author Bio:\n" . ($user->bio ?? 'N/A') . "\n";
 
-            if ($user->profile_photo_url) {
-                $authorContext .= "Author Photo URL(Profile Photo URL): " . asset('storage/' . $user->profile_photo_url) . "\n";
+            if (!empty($user->profile_photo_path)){
+                $photoUrl = $user->profile_photo_url;
+                if (!str_starts_with($user->profile_photo_url, 'http://') && !str_starts_with($user->profile_photo_url, 'https://')) {
+                    $photoUrl = asset('storage/' . $user->profile_photo_url);
+                }
+                $authorContext .= "Author Photo URL(Profile Photo URL): " . $photoUrl . "\n";
             }
             $authorContext .= "\n";
 

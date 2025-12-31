@@ -65,7 +65,7 @@
                         <a role="tab" class="tab tab-active" data-tab-content="preview-content">Preview</a>
                         <a role="tab" class="tab" data-tab-content="code-content">Code</a>
                     </div>
-                    <button id="restore-btn" class="btn btn-outline btn-sm">Restore...</button>
+                    <button id="restore-btn" class="btn btn-outline btn-sm">Undo Changes...</button>
                 </div>
 
                 <div id="panel-controls" class="flex items-center gap-1">
@@ -107,21 +107,22 @@
 
     <dialog id="restore_modal" class="modal">
         <div class="modal-box">
-            <h3 class="font-bold text-lg">Restore Previous Version</h3>
-            <p class="py-4">This will permanently delete the last file operations. This action cannot be undone. How many steps would you like to go back?</p>
+            <h3 class="font-bold text-lg">Undo Last Change</h3>
+            <p class="py-4">Are you sure you want to undo the last change? This will permanently delete the most recent file operation. This action cannot be undone.</p>
+            <!--<p class="py-4">This will permanently delete the last file operations. This action cannot be undone. How many steps would you like to go back?</p>
 
             <div class="form-control w-full">
                 <label class="label" for="restore-steps">
                     <span class="label-text">Number of steps to revert (1 step = 1 file change)</span>
                 </label>
                 <input type="number" id="restore-steps" class="input input-bordered w-full" value="1" min="1" max="50">
-            </div>
+            </div>-->
 
             <div class="modal-action">
                 <form method="dialog">
                     <button class="btn">Cancel</button>
                 </form>
-                <button id="confirm-restore-btn" class="btn btn-error">Yes, Restore</button>
+                <button id="confirm-restore-btn" class="btn btn-error">Yes, Undo</button>
             </div>
         </div>
         <form method="dialog" class="modal-backdrop"><button>close</button></form>
@@ -418,11 +419,12 @@
             };
 
             async function restoreHistory() {
-                const steps = parseInt(restoreStepsInput.value, 10);
+                const steps = 1;
+                /*const steps = parseInt(restoreStepsInput.value, 10);
                 if (isNaN(steps) || steps < 1) {
                     alert('Please enter a valid number of steps.');
                     return;
-                }
+                }*/
 
                 confirmRestoreBtn.classList.add('btn-disabled', 'loading');
 
