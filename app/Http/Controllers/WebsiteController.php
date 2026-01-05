@@ -8,7 +8,7 @@
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
-	use Illuminate\Support\Facades\DB; // MODIFIED: Import DB facade
+	use Illuminate\Support\Facades\DB; // Import DB facade
 	use Illuminate\Support\Facades\Log;
 	use Illuminate\Support\Facades\Redirect;
 	use Illuminate\Validation\Rule;
@@ -19,10 +19,10 @@
 	{
 		/**
 		 * Display a listing of the user's websites (Dashboard).
-		 * MODIFIED: This method now returns a Blade View instead of an Inertia response.
-		 * MODIFIED: Redirects to a setup wizard if the user has no books or websites.
+		 * This method now returns a Blade View instead of an Inertia response.
+		 * Redirects to a setup wizard if the user has no books or websites.
 		 */
-		public function index(): View|RedirectResponse // MODIFIED: Update return type
+		public function index(): View|RedirectResponse // Update return type
 		{
 			$user = Auth::user()->load('websites', 'books');
 
@@ -38,9 +38,9 @@
 			$hasBooks = $user->books->count() > 0;
 			$prerequisitesMet = $profileComplete && $hasBooks;
 
-			// MODIFIED: Removed suggested slug generation as it's now handled in the create() method.
+			// Removed suggested slug generation as it's now handled in the create() method.
 
-			// MODIFIED: Render the 'dashboard' Blade view and pass the necessary data.
+			// Render the 'dashboard' Blade view and pass the necessary data.
 			return view('dashboard', [
 				'websites' => $websites,
 				'hasWebsites' => $websites->isNotEmpty(),
@@ -56,9 +56,9 @@
 
 		/**
 		 * NEW: Show the form for creating a new website.
-		 * MODIFIED: Now accepts a request to handle the wizard flow.
+		 * Now accepts a request to handle the wizard flow.
 		 */
-		public function create(Request $request): View|RedirectResponse // MODIFIED: Update return type and add Request
+		public function create(Request $request): View|RedirectResponse // Update return type and add Request
 		{
 			$user = Auth::user()->load('books');
 
@@ -110,7 +110,7 @@
 			}
 
 			// --- Validation ---
-			// MODIFIED: Added validation for custom_website_style, required if website_style is 'Custom'.
+			// Added validation for custom_website_style, required if website_style is 'Custom'.
 			$validated = $request->validate([
 				'name' => 'required|string|max:255',
 				'slug' => 'required|string|max:255|alpha_dash|unique:websites,slug',
@@ -141,7 +141,7 @@
 			}
 
 			// --- Create Website Record ---
-			// MODIFIED: Added the slug to the create() method data.
+			// Added the slug to the create() method data.
 			$website = $user->websites()->create([
 				'name' => $validated['name'],
 				'slug' => $validated['slug'],
@@ -151,7 +151,7 @@
 			]);
 
 			// --- Construct User Prompt for Initial Generation ---
-			// MODIFIED: Use the custom style if provided, otherwise use the selected style.
+			// Use the custom style if provided, otherwise use the selected style.
 			$initialUserPrompt = "Generate the content for my author website with the following information.\n\n";
 
 			// NEW: Determine which style description to use in the prompt.
@@ -203,7 +203,7 @@
 
 			// --- Create Initial HTML, CSS, and JS Files ---
 			try {
-				// MODIFIED: Create a complete, minimal index.html file
+				// Create a complete, minimal index.html file
 				$minimalIndexContent = <<<HTML
 <!doctype html>
 <html lang="en">
@@ -230,7 +230,7 @@
 </html>
 HTML;
 
-				// MODIFIED: Create minimal style.css content
+				// Create minimal style.css content
 				$minimalCssContent = <<<CSS
 :root {
   --primary-color: #2c3e50;
@@ -308,7 +308,7 @@ CSS;
 			Log::info("Flashing initial_prompt to session for Website ID: {$website->id}");
 
 			// --- Redirect with Initial Prompt ---
-			// MODIFIED: The route helper now uses the website object, which correctly resolves to the new slug.
+			// The route helper now uses the website object, which correctly resolves to the new slug.
 			return redirect()->route('websites.show', $website)
 				->with('success', 'Website created! Generating initial content via chat...')
 				->with('initial_prompt', $initialUserPrompt);
@@ -316,7 +316,7 @@ CSS;
 
 		/**
 		 * Display the specified website (Chat/Preview/Code view).
-		 * MODIFIED: This method now returns a Blade View.
+		 * This method now returns a Blade View.
 		 */
 		public function show(Website $website): View
 		{
@@ -326,7 +326,7 @@ CSS;
                 $query->where('deleted', '!=', 1);
             }]);
 
-			// MODIFIED: START - Sanitize historical chat messages before sending them to the view.
+			// Sanitize historical chat messages before sending them to the view.
 			// This iterates through the loaded messages and removes any HTML tags from the content,
 			// preventing layout issues from improperly formatted historical data.
 			$website->chatMessages->transform(function ($message) {
@@ -338,12 +338,11 @@ CSS;
 				$message->content = $finalContent;
 				return $message;
 			});
-			// MODIFIED: END
 
 			Log::info("Showing website with ID: {$website->id} for user ID: " . Auth::id());
 			Log::info('Initial Prompt:', ['prompt' => session('initial_prompt')]);
 
-			// MODIFIED: Render the 'websites.show' Blade view.
+			// Render the 'websites.show' Blade view.
 			return view('websites.show', [
 				'website' => $website,
 				'chatMessages' => $website->chatMessages,
