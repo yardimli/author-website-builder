@@ -220,6 +220,7 @@ class ChatMessageController extends Controller
             // Fetch history
             $history = ChatMessage::where('website_id', $website->id)
                 ->where('id', '<', $userMessage->id)
+                ->where('deleted', false)
                 ->orderBy('id', 'desc')
                 ->take(12)
                 ->get()

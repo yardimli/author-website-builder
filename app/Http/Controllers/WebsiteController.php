@@ -321,7 +321,10 @@ CSS;
 		public function show(Website $website): View
 		{
 			$this->authorize('view', $website);
-			$website->load('chatMessages');
+            // Load chatMessages with a constraint to exclude deleted messages
+            $website->load(['chatMessages' => function ($query) {
+                $query->where('deleted', '!=', 1);
+            }]);
 
 			// MODIFIED: START - Sanitize historical chat messages before sending them to the view.
 			// This iterates through the loaded messages and removes any HTML tags from the content,
