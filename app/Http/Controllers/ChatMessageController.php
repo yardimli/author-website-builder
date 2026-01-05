@@ -308,6 +308,10 @@ class ChatMessageController extends Controller
 
             // --- CONDITIONAL EXECUTION STAGE ---
             $filesUpdated = false;
+
+            // --- Initialize an array to track IDs of files created in this transaction ---
+            $newlyCreatedFileIds = [];
+
             if ($securityViolationMessage === null) {
                 foreach ($pendingOperations as $operation) {
                     $filesUpdated = true;
@@ -325,14 +329,17 @@ class ChatMessageController extends Controller
 
                         $latestFromFile = WebsiteFile::findLatestActive($website->id, $fromFolder, $fromFilename);
                         if ($latestFromFile) {
-                            WebsiteFile::create([
+                            $f1 = WebsiteFile::create([
                                 'website_id' => $website->id, 'filename' => $latestFromFile->filename, 'folder' => $latestFromFile->folder,
                                 'filetype' => $latestFromFile->filetype, 'version' => $latestFromFile->version + 1, 'content' => $latestFromFile->content, 'is_deleted' => true,
                             ]);
-                            WebsiteFile::create([
+                            $newlyCreatedFileIds[] = $f1->id;
+
+                            $f2 = WebsiteFile::create([
                                 'website_id' => $website->id, 'filename' => $toFilename, 'folder' => $toFolder,
                                 'filetype' => pathinfo($toFilename, PATHINFO_EXTENSION), 'version' => 1, 'content' => $latestFromFile->content, 'is_deleted' => false,
                             ]);
+                            $newlyCreatedFileIds[] = $f2->id;
                         }
                     } elseif ($operation['type'] === 'delete') {
                         $deleteFolder = $this->normalizeFolderPath($match[1]);
@@ -344,10 +351,11 @@ class ChatMessageController extends Controller
 
                         $latestFileToDelete = WebsiteFile::findLatestActive($website->id, $deleteFolder, $deleteFilename);
                         if ($latestFileToDelete) {
-                            WebsiteFile::create([
+                            $f1 = WebsiteFile::create([
                                 'website_id' => $website->id, 'filename' => $latestFileToDelete->filename, 'folder' => $latestFileToDelete->folder,
                                 'filetype' => $latestFileToDelete->filetype, 'version' => $latestFileToDelete->version + 1, 'content' => $latestFileToDelete->content, 'is_deleted' => true,
                             ]);
+                            $newlyCreatedFileIds[] = $f1->id;
                         }
                     } elseif ($operation['type'] === 'write') {
                         $folder = $this->normalizeFolderPath($match[1]);
@@ -361,10 +369,11 @@ class ChatMessageController extends Controller
                         $latestVersion = WebsiteFile::where('website_id', $website->id)->where('folder', $folder)->where('filename', $filename)->max('version');
                         $newVersion = $latestVersion ? $latestVersion + 1 : 1;
 
-                        WebsiteFile::create([
+                        $f1 = WebsiteFile::create([
                             'website_id' => $website->id, 'filename' => $filename, 'folder' => $folder,
                             'filetype' => pathinfo($filename, PATHINFO_EXTENSION), 'version' => $newVersion, 'content' => $content, 'is_deleted' => false,
                         ]);
+                        $newlyCreatedFileIds[] = $f1->id;
                     }
                 }
             }
@@ -401,6 +410,15 @@ class ChatMessageController extends Controller
                 'role' => 'assistant',
                 'content' => $finalContent,
             ]);
+
+            // --- LINK FILES TO CHAT MESSAGES ---
+            // Now that we have the assistant message ID, we can update all files created in this loop.
+            // We use the $newlyCreatedFileIds array to perform a single update query.
+            if (!empty($newlyCreatedFileIds)) {
+                WebsiteFile::whereIn('id', $newlyCreatedFileIds)->update([
+                    'chat_messages_ids' => json_encode([$userMessage->id, $assistantMessage->id])
+                ]);
+            }
 
             DB::commit();
 

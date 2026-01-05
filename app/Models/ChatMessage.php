@@ -15,12 +15,14 @@
 			'role',
 			'content',
             'prompt_images_ids',
+            'deleted',
 		];
 
 		protected $casts = [
 			'created_at' => 'datetime',
 			'updated_at' => 'datetime',
             'prompt_images_ids' => 'array',
+            'deleted' => 'boolean',
 		];
 
 		public function website(): BelongsTo

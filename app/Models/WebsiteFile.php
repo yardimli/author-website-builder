@@ -17,12 +17,14 @@
 			'filetype',
 			'version',
 			'content',
-			'is_deleted', // <-- Add this
+			'is_deleted',
+            'chat_messages_ids',
 		];
 
 		// Add casting for the boolean field
 		protected $casts = [
 			'is_deleted' => 'boolean',
+            'chat_messages_ids' => 'array',
 		];
 
 
