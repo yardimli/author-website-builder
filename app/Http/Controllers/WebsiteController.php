@@ -5,6 +5,7 @@
 	use App\Models\Website;
 	use App\Models\WebsiteFile;
 	use App\Models\Book;
+    use App\Models\ChatMessage;
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
@@ -26,7 +27,7 @@
 		{
 			$user = Auth::user()->load('websites', 'books');
 
-			// NEW: Check if it's a new user (no books and no websites) and redirect to the wizard.
+			//Check if it's a new user (no books and no websites) and redirect to the wizard.
 			if ($user->books->isEmpty() && $user->websites->isEmpty()) {
 				return redirect()->route('profile.import', ['wizard' => '1']);
 			}
@@ -55,7 +56,7 @@
 		}
 
 		/**
-		 * NEW: Show the form for creating a new website.
+		 * Show the form for creating a new website.
 		 * Now accepts a request to handle the wizard flow.
 		 */
 		public function create(Request $request): View|RedirectResponse // Update return type and add Request
@@ -154,7 +155,7 @@
 			// Use the custom style if provided, otherwise use the selected style.
 			$initialUserPrompt = "Generate the content for my author website with the following information.\n\n";
 
-			// NEW: Determine which style description to use in the prompt.
+			// Determine which style description to use in the prompt.
 			$websiteStyle = $validated['website_style'] === 'Custom'
 				? $validated['custom_website_style']
 				: $validated['website_style'];
@@ -350,7 +351,7 @@ CSS;
 		}
 
 		/**
-		 * NEW: Check if a given slug is available.
+		 * Check if a given slug is available.
 		 * This is used for real-time validation on the frontend.
 		 */
 		public function checkSlug(Request $request)
@@ -372,7 +373,7 @@ CSS;
 		}
 
 		/**
-		 * NEW: Update the slug for a given website.
+		 * Update the slug for a given website.
 		 */
 		public function updateSlug(Request $request, Website $website)
 		{
@@ -433,6 +434,16 @@ CSS;
                         $deletedCount = WebsiteFile::where('website_id', $website->id)
                             ->where('chat_messages_ids', $groupIdRaw)
                             ->delete();
+
+                        // --- Mark associated ChatMessages as deleted ---
+                        // Decode the JSON string to get IDs
+                        $messageIds = json_decode($groupIdRaw, true);
+                        // If IDs are found, soft-delete the chat messages
+                        if (is_array($messageIds) && !empty($messageIds)) {
+                            ChatMessage::whereIn('id', $messageIds)
+                                ->where('website_id', $website->id)
+                                ->update(['deleted' => true]);
+                        }
 
                         Log::info("Restoration Step " . ($i + 1) . ": Deleted {$deletedCount} files associated with chat_messages_ids: {$groupIdRaw}");
                     } else {
