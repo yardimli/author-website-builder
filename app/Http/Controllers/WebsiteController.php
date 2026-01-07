@@ -394,45 +394,73 @@ CSS;
 			return Redirect::route('dashboard')->with('status', 'website-slug-updated');
 		}
 
-		/**
-		 * NEW: Restore the website's file system to a previous state.
-		 */
-		public function restore(Request $request, Website $website)
-		{
-			$this->authorize('update', $website);
+        /**
+         * Restore the website's file system to a previous state.
+         * Updated to handle grouped file creations based on chat_messages_ids.
+         */
+        public function restore(Request $request, Website $website)
+        {
+            $this->authorize('update', $website);
 
-			$validated = $request->validate([
-				'steps' => 'nullable|integer|min:1',
-			]);
+            $validated = $request->validate([
+                'steps' => 'nullable|integer|min:1',
+            ]);
 
-			$stepsToRevert = $validated['steps'] ?? 1;
+            $stepsToRevert = $validated['steps'] ?? 1;
+            $deletedGroupsCount = 0;
 
-			DB::beginTransaction();
-			try {
-				// Find the IDs of the last 'n' file operations to revert
-				$fileIdsToDelete = WebsiteFile::where('website_id', $website->id)
-					->orderByDesc('id')
-					->limit($stepsToRevert)
-					->pluck('id');
+            DB::beginTransaction();
+            try {
+                for ($i = 0; $i < $stepsToRevert; $i++) {
+                    // 1. Find the absolute latest file record for this website
+                    $latestFile = WebsiteFile::where('website_id', $website->id)
+                        ->orderBy('id', 'desc')
+                        ->first();
 
-				if ($fileIdsToDelete->isEmpty()) {
-					DB::rollBack();
-					return response()->json(['message' => 'No file history to restore.'], 404);
-				}
+                    // If no files exist, we can't revert anything
+                    if (!$latestFile) {
+                        break;
+                    }
 
-				// Delete the identified records
-				WebsiteFile::whereIn('id', $fileIdsToDelete)->delete();
+                    // 2. Check if this file belongs to a Chat Interaction Group
+                    // We use getRawOriginal to get the exact JSON string from the DB for matching
+                    $groupIdRaw = $latestFile->getRawOriginal('chat_messages_ids');
 
-				DB::commit();
+                    if (!empty($groupIdRaw) && $groupIdRaw !== 'null') {
+                        // CASE A: Modern record with grouping
+                        // Delete ALL files created in this specific chat interaction
+                        // We match strictly on the raw JSON string to ensure we get the exact group
+                        $deletedCount = WebsiteFile::where('website_id', $website->id)
+                            ->where('chat_messages_ids', $groupIdRaw)
+                            ->delete();
 
-				Log::info("User ID " . Auth::id() . " restored Website ID {$website->id} by {$stepsToRevert} steps.");
+                        Log::info("Restoration Step " . ($i + 1) . ": Deleted {$deletedCount} files associated with chat_messages_ids: {$groupIdRaw}");
+                    } else {
+                        // CASE B: Legacy record or manual edit (No Group ID)
+                        // Fallback to deleting just this single file record
+                        $latestFile->delete();
 
-				return response()->json(['message' => "Successfully restored the last {$stepsToRevert} file operations."]);
+                        Log::info("Restoration Step " . ($i + 1) . ": Deleted single legacy file ID: {$latestFile->id}");
+                    }
 
-			} catch (\Exception $e) {
-				DB::rollBack();
-				Log::error("Error restoring website history for Website ID {$website->id}: " . $e->getMessage());
-				return response()->json(['error' => 'An unexpected error occurred while trying to restore the files.'], 500);
-			}
-		}
+                    $deletedGroupsCount++;
+                }
+
+                if ($deletedGroupsCount === 0) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'No file history found to restore.'], 404);
+                }
+
+                DB::commit();
+
+                Log::info("User ID " . Auth::id() . " restored Website ID {$website->id} by reverting {$deletedGroupsCount} interactions.");
+
+                return response()->json(['message' => "Successfully restored the last {$deletedGroupsCount} interactions."]);
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                Log::error("Error restoring website history for Website ID {$website->id}: " . $e->getMessage());
+                return response()->json(['error' => 'An unexpected error occurred while trying to restore the files.'], 500);
+            }
+        }
 	}
