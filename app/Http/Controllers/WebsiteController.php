@@ -409,6 +409,7 @@ CSS;
 
             $stepsToRevert = $validated['steps'] ?? 1;
             $deletedGroupsCount = 0;
+            $revertedUuids = [];
 
             DB::beginTransaction();
             try {
@@ -440,6 +441,15 @@ CSS;
                         $messageIds = json_decode($groupIdRaw, true);
                         // If IDs are found, soft-delete the chat messages
                         if (is_array($messageIds) && !empty($messageIds)) {
+                            // Fetch UUIDs before marking as deleted so we can tell the frontend
+                            $messages = ChatMessage::whereIn('id', $messageIds)
+                                ->where('website_id', $website->id)
+                                ->get(['uuid']);
+
+                            foreach ($messages as $msg) {
+                                $revertedUuids[] = $msg->uuid;
+                            }
+
                             ChatMessage::whereIn('id', $messageIds)
                                 ->where('website_id', $website->id)
                                 ->update(['deleted' => true]);
@@ -466,7 +476,10 @@ CSS;
 
                 Log::info("User ID " . Auth::id() . " restored Website ID {$website->id} by reverting {$deletedGroupsCount} interactions.");
 
-                return response()->json(['message' => "Successfully restored the last {$deletedGroupsCount} interactions."]);
+                return response()->json([
+                    'message' => "Successfully restored the last {$deletedGroupsCount} interactions.",
+                    'reverted_uuids' => $revertedUuids // Send UUIDs back to JS
+                ]);
 
             } catch (\Exception $e) {
                 DB::rollBack();

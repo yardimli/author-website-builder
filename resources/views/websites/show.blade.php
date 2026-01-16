@@ -16,7 +16,7 @@
             {{-- Chat Messages Area --}}
             <div id="chat-messages" class="flex-grow p-4 space-y-4 overflow-y-auto">
                 @foreach($chatMessages as $msg)
-                    <div class="chat {{ $msg->role === 'user' ? 'chat-end' : 'chat-start' }}">
+                    <div class="chat {{ $msg->role === 'user' ? 'chat-start' : 'chat-end' }}">
                         <div class="chat-bubble {{ $msg->role === 'user' ? 'chat-bubble-primary' : '' }}" data-uuid="{{ $msg->uuid }}">
                             {!! \Illuminate\Support\Str::markdown($msg->content) !!}
                             {{-- Optional: If you want to show past images in history, check prompt_image_ids here, though not strictly required by prompt --}}
@@ -202,7 +202,7 @@
 
             function addMessageToUI(role, content, uuid = null) {
                 const messageElement = document.createElement('div');
-                messageElement.className = `chat ${role === 'user' ? 'chat-end' : 'chat-start'}`;
+                messageElement.className = `chat ${role === 'user' ? 'chat-start' : 'chat-end'}`;
 
                 const bubble = document.createElement('div');
                 bubble.className = `chat-bubble ${role === 'user' ? 'chat-bubble-primary' : ''}`;
@@ -453,6 +453,21 @@
 
                     if (!response.ok) {
                         throw new Error(data.error || data.message || 'Failed to restore history.');
+                    }
+
+                    // --- REMOVE CHAT BUBBLES ---
+                    if (data.reverted_uuids && data.reverted_uuids.length > 0) {
+                        data.reverted_uuids.forEach(uuid => {
+                            // Find the bubble by UUID
+                            const bubble = document.querySelector(`[data-uuid="${uuid}"]`);
+                            if (bubble) {
+                                // Find the parent container with class "chat" and remove it
+                                const chatRow = bubble.closest('.chat');
+                                if (chatRow) {
+                                    chatRow.remove();
+                                }
+                            }
+                        });
                     }
 
                     restoreModal.close();
