@@ -17,7 +17,7 @@
             <div id="chat-messages" class="flex-grow p-4 space-y-4 overflow-y-auto">
                 @foreach($chatMessages as $msg)
                     <div class="chat {{ $msg->role === 'user' ? 'chat-end' : 'chat-start' }}">
-                        <div class="chat-bubble {{ $msg->role === 'user' ? 'chat-bubble-primary' : '' }}">
+                        <div class="chat-bubble {{ $msg->role === 'user' ? 'chat-bubble-primary' : '' }}" data-uuid="{{ $msg->uuid }}">
                             {!! \Illuminate\Support\Str::markdown($msg->content) !!}
                             {{-- Optional: If you want to show past images in history, check prompt_image_ids here, though not strictly required by prompt --}}
                         </div>
@@ -200,12 +200,16 @@
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             };
 
-            function addMessageToUI(role, content) {
+            function addMessageToUI(role, content, uuid = null) {
                 const messageElement = document.createElement('div');
                 messageElement.className = `chat ${role === 'user' ? 'chat-end' : 'chat-start'}`;
 
                 const bubble = document.createElement('div');
                 bubble.className = `chat-bubble ${role === 'user' ? 'chat-bubble-primary' : ''}`;
+
+                if (uuid) {
+                    bubble.setAttribute('data-uuid', uuid);
+                }
 
                 // Append content
                 bubble.innerHTML = marked.parse(content);
@@ -224,6 +228,8 @@
                 chatMessages.appendChild(messageElement);
 
                 scrollChatToBottom();
+
+                return bubble;
             };
 
             // Clear Image Selection
@@ -241,7 +247,7 @@
 
                 lastResponseWasError = false;
 
-                addMessageToUI('user', message);
+                const userBubble = addMessageToUI('user', message);
                 chatInput.value = '';
 
                 chatInput.disabled = true;
@@ -276,7 +282,11 @@
                     }
                     const data = await response.json();
 
-                    addMessageToUI('assistant', data.assistantMessage.content);
+                    if (data.userMessage && data.userMessage.uuid) {
+                        userBubble.setAttribute('data-uuid', data.userMessage.uuid);
+                    }
+
+                    addMessageToUI('assistant', data.assistantMessage.content, data.assistantMessage.uuid);
 
                     if (data.files_updated) {
                         await fetchFiles();
