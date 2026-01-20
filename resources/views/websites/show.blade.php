@@ -44,7 +44,7 @@
                 <input type="file" id="prompt-image-input" name="prompt_image" accept="image/*" class="hidden">
 
                 {{-- Upload Button --}}
-                <button type="button" id="upload-btn" class="btn btn-square btn-ghost text-neutral-content/70 hover:text-primary" title="Attach Image">
+                <button type="button" id="upload-btn" class="btn btn-square btn-ghost text-base-content/70 hover:text-primary" title="Attach Image">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
                     </svg>
@@ -127,6 +127,16 @@
         </div>
         <form method="dialog" class="modal-backdrop"><button>close</button></form>
     </dialog>
+
+    <!-- Success Toast -->
+    <div id="toast-success" class="toast toast-top toast-center z-[100] hidden">
+        <div class="alert alert-success bg-emerald-500 text-white border-none shadow-lg py-2 px-4 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-medium">Undo successful!</span>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -430,6 +440,7 @@
 
             async function restoreHistory() {
                 const steps = 1;
+                const toast = document.getElementById('toast-success');
                 /*const steps = parseInt(restoreStepsInput.value, 10);
                 if (isNaN(steps) || steps < 1) {
                     alert('Please enter a valid number of steps.');
@@ -437,6 +448,7 @@
                 }*/
 
                 confirmRestoreBtn.classList.add('btn-disabled', 'loading');
+                confirmRestoreBtn.innerHTML = `${icons.spinner} Processing...`;
 
                 try {
                     const response = await fetch("{{ route('websites.restore', $website) }}", {
@@ -470,8 +482,22 @@
                         });
                     }
 
-                    restoreModal.close();
-                    alert('Successfully restored files!');
+                    toast.classList.remove('hidden');
+
+                    setTimeout(() => {
+                        restoreModal.close();
+                        // Reset button state for next time
+                        confirmRestoreBtn.classList.remove('btn-disabled');
+                        confirmRestoreBtn.innerText = 'Yes, Undo';
+
+                        // Hide toast after 3 seconds
+                        setTimeout(() => {
+                            toast.classList.add('hidden');
+                        }, 3000);
+                    }, 600);
+
+                    //restoreModal.close();
+                    //alert('Successfully restored files!');
                     await fetchFiles();
                     refreshPreview();
 
