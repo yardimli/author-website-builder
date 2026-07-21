@@ -97,6 +97,8 @@ class AuthorWebsiteExperienceTest extends TestCase
 
         $this->assertDatabaseCount('websites', 3);
         $this->assertDatabaseCount('website_files', 9);
+        $this->assertSame(9, WebsiteFile::where('content', 'like', '%demo-template:2%')->count());
+        $this->assertTrue(WebsiteFile::all()->every(fn (WebsiteFile $file) => mb_check_encoding($file->content, 'UTF-8')));
         $this->assertSame(3, Website::where('user_id', $user->id)->where('is_demo', true)->count());
     }
 
