@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\Website;
+use App\Models\WebsiteFile;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -88,17 +89,38 @@ class AuthorWebsiteExperienceTest extends TestCase
         $this->actingAs($user)->get('/dashboard')
             ->assertOk()
             ->assertSee('Start here')
-            ->assertSee('Demo: Romance Author')
-            ->assertSee('Demo: Suspense Author')
-            ->assertSee('Demo: Fantasy Author');
+            ->assertSee('Demo: The Rain of Memories')
+            ->assertSee('Demo: The Midnight Enigma')
+            ->assertSee('Demo: The Whisper Sword');
 
         $this->actingAs($user)->get('/dashboard')->assertOk();
 
         $this->assertDatabaseCount('websites', 3);
-        $this->assertDatabaseCount('website_files', 12);
+        $this->assertDatabaseCount('website_files', 9);
         $this->assertSame(3, Website::where('user_id', $user->id)->where('is_demo', true)->count());
     }
 
+    public function test_existing_version_one_demo_is_upgraded_without_losing_history(): void
+    {
+        $user = User::factory()->create();
+        $website = Website::create([
+            'user_id' => $user->id,
+            'name' => 'Demo: The Rain of Memories',
+            'slug' => 'old-romance-demo',
+            'featured_book_ids' => [],
+            'is_demo' => true,
+            'demo_key' => 'romance',
+        ]);
+        WebsiteFile::create(['website_id' => $website->id, 'folder' => '/', 'filename' => 'index.html', 'filetype' => 'html', 'version' => 1, 'content' => '<h1>Old demo</h1>', 'is_deleted' => false]);
+        WebsiteFile::create(['website_id' => $website->id, 'folder' => '/assets', 'filename' => 'cover.svg', 'filetype' => 'svg', 'version' => 1, 'content' => '<svg></svg>', 'is_deleted' => false]);
+
+        $this->actingAs($user)->get('/dashboard')->assertOk();
+
+        $this->assertDatabaseHas('website_files', ['website_id' => $website->id, 'filename' => 'index.html', 'version' => 1, 'is_deleted' => false]);
+        $this->assertDatabaseHas('website_files', ['website_id' => $website->id, 'filename' => 'index.html', 'version' => 2, 'is_deleted' => false]);
+        $this->assertDatabaseHas('website_files', ['website_id' => $website->id, 'filename' => 'cover.svg', 'version' => 2, 'is_deleted' => true]);
+        $this->assertDatabaseHas('websites', ['id' => $website->id, 'name' => 'Demo: The Rain of Memories']);
+    }
     public function test_members_can_download_latest_website_files_as_a_zip(): void
     {
         $user = User::factory()->create();
@@ -113,7 +135,11 @@ class AuthorWebsiteExperienceTest extends TestCase
         $this->assertNotFalse($archive->locateName('index.html'));
         $this->assertNotFalse($archive->locateName('css/style.css'));
         $this->assertNotFalse($archive->locateName('js/script.js'));
-        $this->assertNotFalse($archive->locateName('assets/cover.svg'));
+        $this->assertNotFalse($archive->locateName('assets/cover.jpg'));
+        $this->assertNotFalse($archive->locateName('assets/author.jpg'));
+        $this->assertNotFalse($archive->locateName('assets/book-3d.jpg'));
+        $this->assertNotFalse($archive->locateName('assets/tablet.jpg'));
+        $this->assertNotFalse($archive->locateName('assets/social.jpg'));
         $archive->close();
     }
 }

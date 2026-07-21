@@ -16,10 +16,7 @@
 <div class="grain min-h-screen overflow-hidden">
     <nav class="mx-auto flex max-w-7xl items-center justify-between px-5 py-6 lg:px-8">
         <a href="{{ route('home') }}" class="text-lg font-bold tracking-tight">{{ config('app.name', 'Author Website Builder') }}</a>
-        <div class="flex items-center gap-3">
-            <a href="{{ route('login') }}" class="btn btn-ghost btn-sm">Log in</a>
-            <a href="{{ route('register') }}" class="btn btn-neutral btn-sm">Start building</a>
-        </div>
+        <div class="flex items-center gap-3"><a href="{{ route('login') }}" class="btn btn-ghost btn-sm">Log in</a><a href="{{ route('register') }}" class="btn btn-neutral btn-sm">Start building</a></div>
     </nav>
 
     <main>
@@ -29,8 +26,8 @@
             <p class="mx-auto mt-7 max-w-2xl text-lg leading-8 text-[#655d57]">Bring your bio, covers, and book details. Describe the mood you want. The builder creates the site, then keeps refining it with you.</p>
             <div class="mt-9 flex flex-wrap justify-center gap-3"><a href="{{ route('register') }}" class="btn btn-neutral btn-lg">Create your author site</a><a href="#inside" class="btn btn-ghost btn-lg">See how it works</a></div>
             <div class="relative mx-auto mt-20 max-w-6xl pb-20">
-                <img src="{{ asset('images/landing/editor-light.svg') }}" alt="Light mode author website editor with an AI conversation and romance website preview" class="shot relative z-10 w-[88%] rounded-2xl border border-black/10 bg-white">
-                <img src="{{ asset('images/landing/editor-dark.svg') }}" alt="Dark mode author website editor with an AI conversation and suspense website preview" class="shot absolute bottom-0 right-0 z-20 w-[58%] rounded-2xl border border-white/10">
+                <img src="{{ asset('images/landing/editor-light.png') }}" alt="Light mode author website editor with an AI conversation and romance website preview" class="shot relative z-10 w-[88%] rounded-2xl border border-black/10 bg-white">
+                <img src="{{ asset('images/landing/editor-dark.png') }}" alt="Dark mode author website editor with an AI conversation and suspense website preview" class="shot absolute bottom-0 right-0 z-20 w-[58%] rounded-2xl border border-white/10">
             </div>
         </section>
 
@@ -41,19 +38,19 @@
                     <p class="max-w-xl text-lg leading-8 text-white/60 lg:justify-self-end">No blank canvas and no template maze. Ask for a stronger headline, a section for reviews, a softer palette, or a mobile navigation fix. Preview and code stay beside the conversation.</p>
                 </div>
                 <div class="mt-14 grid gap-8 lg:grid-cols-2">
-                    <figure><img src="{{ asset('images/landing/editor-light.svg') }}" alt="Light mode AI editor screenshot" class="w-full rounded-2xl border border-white/10"><figcaption class="mt-4 text-sm text-white/55"><strong class="text-white">Light mode:</strong> “Make the hero more romantic using colors from my cover.”</figcaption></figure>
-                    <figure class="lg:mt-20"><img src="{{ asset('images/landing/editor-dark.svg') }}" alt="Dark mode AI editor screenshot" class="w-full rounded-2xl border border-white/10"><figcaption class="mt-4 text-sm text-white/55"><strong class="text-white">Dark mode:</strong> “Add reviews and improve the mobile menu contrast.”</figcaption></figure>
+                    <figure><img src="{{ asset('images/landing/editor-light.png') }}" alt="Light mode AI editor screenshot" class="w-full rounded-2xl border border-white/10"><figcaption class="mt-4 text-sm text-white/55"><strong class="text-white">Light mode:</strong> “Use the colors from my cover and make the author section warmer.”</figcaption></figure>
+                    <figure class="lg:mt-20"><img src="{{ asset('images/landing/editor-dark.png') }}" alt="Dark mode AI editor screenshot" class="w-full rounded-2xl border border-white/10"><figcaption class="mt-4 text-sm text-white/55"><strong class="text-white">Dark mode:</strong> “Add a press quote and improve the mobile navigation.”</figcaption></figure>
                 </div>
             </div>
         </section>
 
         <section class="px-5 py-24 lg:px-8 lg:py-32">
             <div class="mx-auto max-w-7xl">
-                <div class="max-w-3xl"><p class="text-xs font-bold uppercase tracking-[.22em] text-[#8f3155]">Built for the genre</p><h2 class="display mt-4 text-4xl leading-tight sm:text-6xl">Not one author template.<br>Three very different rooms.</h2><p class="mt-6 text-lg leading-8 text-[#6b635d]">Every account opens with romance, suspense, and fantasy examples. Edit them, inspect the code, download the files, or use them as a visual starting point.</p></div>
+                <div class="max-w-3xl"><p class="text-xs font-bold uppercase tracking-[.22em] text-[#8f3155]">Built for the genre</p><h2 class="display mt-4 text-4xl leading-tight sm:text-6xl">Not one author template.<br>Three very different rooms.</h2><p class="mt-6 text-lg leading-8 text-[#6b635d]">Every account opens with romance, suspense, and fantasy examples built around real cover artwork. Edit them, inspect the code, download the files, or use them as a visual starting point.</p></div>
                 <div class="mt-14 grid gap-7 lg:grid-cols-12">
-                    <figure class="lg:col-span-8"><div class="overflow-hidden rounded-2xl border border-black/10 bg-white p-2 shadow-xl"><img src="{{ asset('images/landing/romance-desktop.svg') }}" alt="Full desktop romance author website" class="w-full rounded-xl"></div><figcaption class="mt-4 flex justify-between text-sm"><span class="font-semibold">Romance, full desktop</span><span class="text-[#766d66]">Warm editorial direction</span></figcaption></figure>
-                    <figure class="mx-auto w-full max-w-[390px] lg:col-span-4"><div class="rounded-[2.5rem] border-[10px] border-[#282b30] bg-[#282b30] shadow-2xl"><img src="{{ asset('images/landing/suspense-mobile.svg') }}" alt="Full mobile suspense author website" class="w-full rounded-[1.8rem]"></div><figcaption class="mt-4 flex justify-between text-sm"><span class="font-semibold">Suspense, full mobile</span><span class="text-[#766d66]">Fast and cinematic</span></figcaption></figure>
-                    <figure class="lg:col-span-10 lg:col-start-2"><div class="overflow-hidden rounded-2xl border border-black/10 bg-white p-2 shadow-xl"><img src="{{ asset('images/landing/fantasy-detail.svg') }}" alt="Fantasy author website worldbuilding section" class="w-full rounded-xl"></div><figcaption class="mt-4 flex justify-between text-sm"><span class="font-semibold">Fantasy, section detail</span><span class="text-[#766d66]">Worldbuilding beyond the cover</span></figcaption></figure>
+                    <figure class="lg:col-span-8"><div class="overflow-hidden rounded-2xl border border-black/10 bg-white p-2 shadow-xl"><img src="{{ asset('images/landing/romance-desktop.png') }}" alt="Full desktop romance author website" class="w-full rounded-xl"></div><figcaption class="mt-4 flex justify-between text-sm"><span class="font-semibold">Romance, full desktop</span><span class="text-[#766d66]">The Rain of Memories</span></figcaption></figure>
+                    <figure class="mx-auto w-full max-w-[390px] lg:col-span-4"><div class="rounded-[2.5rem] border-[10px] border-[#282b30] bg-[#282b30] shadow-2xl"><img src="{{ asset('images/landing/suspense-mobile.png') }}" alt="Full mobile suspense author website" class="w-full rounded-[1.8rem]"></div><figcaption class="mt-4 flex justify-between text-sm"><span class="font-semibold">Suspense, full mobile</span><span class="text-[#766d66]">The Midnight Enigma</span></figcaption></figure>
+                    <figure class="lg:col-span-10 lg:col-start-2"><div class="overflow-hidden rounded-2xl border border-black/10 bg-white p-2 shadow-xl"><img src="{{ asset('images/landing/fantasy-detail.png') }}" alt="Fantasy author website worldbuilding and biography section" class="w-full rounded-xl"></div><figcaption class="mt-4 flex justify-between text-sm"><span class="font-semibold">Fantasy, section detail</span><span class="text-[#766d66]">The Whisper Sword</span></figcaption></figure>
                 </div>
             </div>
         </section>
@@ -61,7 +58,7 @@
         <section class="px-5 pb-24 lg:px-8 lg:pb-32">
             <div class="mx-auto grid max-w-7xl overflow-hidden rounded-3xl bg-[#8f3155] text-white lg:grid-cols-2">
                 <div class="p-8 sm:p-14"><p class="text-xs font-bold uppercase tracking-[.22em] text-white/65">Your site stays yours</p><h2 class="display mt-4 text-4xl sm:text-5xl">Preview it. Edit the code. Take it with you.</h2><p class="mt-6 max-w-xl text-lg leading-8 text-white/75">Download a ZIP containing the latest HTML, CSS, JavaScript, and image files. Host it elsewhere, hand it to a developer, or keep a portable copy.</p></div>
-                <div class="flex items-center justify-center bg-[#6f213f] p-10"><div class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur"><div class="flex items-center justify-between border-b border-white/15 pb-4"><span class="font-semibold">elena-marlowe.zip</span><span class="rounded-full bg-white/15 px-3 py-1 text-xs">Ready</span></div><div class="space-y-3 pt-4 font-mono text-sm text-white/75"><p>index.html</p><p>css/style.css</p><p>js/script.js</p><p>assets/cover.svg</p><p>storage/author-photo.jpg</p></div></div></div>
+                <div class="flex items-center justify-center bg-[#6f213f] p-10"><div class="w-full max-w-sm rounded-2xl border border-white/15 bg-white/10 p-5 backdrop-blur"><div class="flex items-center justify-between border-b border-white/15 pb-4"><span class="font-semibold">author-website.zip</span><span class="rounded-full bg-white/15 px-3 py-1 text-xs">Ready</span></div><div class="space-y-3 pt-4 font-mono text-sm text-white/75"><p>index.html</p><p>css/style.css</p><p>js/script.js</p><p>assets/cover.jpg</p><p>assets/author.jpg</p></div></div></div>
             </div>
         </section>
 

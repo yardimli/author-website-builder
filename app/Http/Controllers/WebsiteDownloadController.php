@@ -42,6 +42,7 @@ class WebsiteDownloadController extends Controller
             ->where('is_deleted', false)
             ->pluck('image_file_path')
             ->all();
+        $publicAssets = [];
 
         foreach ($files as $file) {
             $archivePath = $this->archivePath($file->folder, $file->filename);
@@ -58,6 +59,21 @@ class WebsiteDownloadController extends Controller
                     },
                     $content
                 );
+
+                $content = preg_replace_callback(
+                    '~(?:https?://[^\s"\'()]+)?/images/demo-sites/([^\s"\'?#)]+)~i',
+                    function (array $matches) use (&$publicAssets, $archivePath) {
+                        $sourcePath = 'images/demo-sites/' . rawurldecode($matches[1]);
+                        $targetPath = 'assets/' . basename($sourcePath);
+
+                        if (!str_contains($sourcePath, '..')) {
+                            $publicAssets[$sourcePath] = $targetPath;
+                        }
+
+                        return $this->relativePath($archivePath, $targetPath);
+                    },
+                    $content
+                );
             }
 
             $zip->addFromString($archivePath, $content);
@@ -67,6 +83,13 @@ class WebsiteDownloadController extends Controller
             $storagePath = ltrim(str_replace('\\', '/', $storagePath), '/');
             if ($storagePath !== '' && !str_contains($storagePath, '..') && Storage::disk('public')->exists($storagePath)) {
                 $zip->addFile(Storage::disk('public')->path($storagePath), 'storage/' . $storagePath);
+            }
+        }
+
+        foreach ($publicAssets as $sourcePath => $targetPath) {
+            $fullPath = public_path($sourcePath);
+            if (is_file($fullPath)) {
+                $zip->addFile($fullPath, $targetPath);
             }
         }
 
