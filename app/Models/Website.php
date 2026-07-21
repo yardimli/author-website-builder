@@ -19,10 +19,13 @@
 			'slug', // MODIFIED: Add slug
 			'primary_book_id',
 			'featured_book_ids',
+			'is_demo',
+			'demo_key',
 		];
 
 		protected $casts = [
 			'featured_book_ids' => 'array',
+			'is_demo' => 'boolean',
 		];
 
 		// NEW: Add this method to use the 'slug' column for route model binding.

@@ -6,6 +6,7 @@
 	use App\Models\WebsiteFile;
 	use App\Models\Book;
     use App\Models\ChatMessage;
+	use App\Services\DemoWebsiteService;
 	use Illuminate\Http\RedirectResponse;
 	use Illuminate\Http\Request;
 	use Illuminate\Support\Facades\Auth;
@@ -19,39 +20,35 @@
 	class WebsiteController extends Controller
 	{
 		/**
-		 * Display a listing of the user's websites (Dashboard).
-		 * This method now returns a Blade View instead of an Inertia response.
-		 * Redirects to a setup wizard if the user has no books or websites.
+		 * Ensure every member has the editable demo catalog before rendering.
 		 */
-		public function index(): View|RedirectResponse // Update return type
+		public function index(DemoWebsiteService $demoWebsiteService): View
 		{
-			$user = Auth::user()->load('websites', 'books');
+			$user = Auth::user();
+			$demoWebsiteService->ensureForUser($user);
+			$user->load('books');
 
-			//Check if it's a new user (no books and no websites) and redirect to the wizard.
-			if ($user->books->isEmpty() && $user->websites->isEmpty()) {
-				return redirect()->route('profile.import', ['wizard' => '1']);
-			}
+			$userWebsites = $user->websites()
+				->where('is_demo', false)
+				->orderByDesc('created_at')
+				->get();
+			$demoOrder = ['romance' => 0, 'suspense' => 1, 'fantasy' => 2];
+			$demoWebsites = $user->websites()
+				->where('is_demo', true)
+				->get()
+				->sortBy(fn (Website $website) => $demoOrder[$website->demo_key] ?? 99)
+				->values();
 
-			$websites = $user->websites()->orderBy('created_at', 'desc')->get();
+			$profileComplete = !empty($user->name) && !empty($user->bio);
+			$hasBooks = $user->books->isNotEmpty();
 
-			// Check profile completeness
-			$profileComplete = !empty($user->name) && !empty($user->bio); // && !empty($user->profile_photo_path);
-			$hasBooks = $user->books->count() > 0;
-			$prerequisitesMet = $profileComplete && $hasBooks;
-
-			// Removed suggested slug generation as it's now handled in the create() method.
-
-			// Render the 'dashboard' Blade view and pass the necessary data.
 			return view('dashboard', [
-				'websites' => $websites,
-				'hasWebsites' => $websites->isNotEmpty(),
-				'userBooks' => $user->books,
-				'prerequisitesMet' => $prerequisitesMet,
+				'userWebsites' => $userWebsites,
+				'demoWebsites' => $demoWebsites,
+				'hasUserWebsites' => $userWebsites->isNotEmpty(),
+				'prerequisitesMet' => $profileComplete && $hasBooks,
 				'profileComplete' => $profileComplete,
 				'hasBooks' => $hasBooks,
-				'auth' => [
-					'user' => $user
-				]
 			]);
 		}
 

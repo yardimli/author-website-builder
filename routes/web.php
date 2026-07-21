@@ -8,6 +8,7 @@
 	use App\Http\Controllers\ProfileController;
 	use App\Http\Controllers\WebsiteController;
 	use App\Http\Controllers\WebsiteFileController;
+	use App\Http\Controllers\WebsiteDownloadController;
 	use App\Http\Controllers\WebsitePreviewController;
 	use Illuminate\Support\Facades\Route;
 
@@ -61,6 +62,7 @@
 		// Website management routes
 		Route::get('/websites/create', [WebsiteController::class, 'create'])->name('websites.create'); // NEW: Route to show the create form.
 		Route::post('/websites', [WebsiteController::class, 'store'])->name('websites.store');
+		Route::get('/websites/{website:slug}/download', WebsiteDownloadController::class)->name('websites.download');
 		Route::get('/websites/{website:slug}', [WebsiteController::class, 'show'])->name('websites.show');
 		Route::patch('/websites/{website:slug}/slug', [WebsiteController::class, 'updateSlug'])->name('websites.slug.update');
 		Route::post('/websites/slug/check', [WebsiteController::class, 'checkSlug'])->name('websites.slug.check');
