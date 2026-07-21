@@ -23,8 +23,8 @@
 	<!-- Scripts -->
 	@vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="font-sans antialiased">
-<div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-base-200 relative">
+<body class="min-h-screen bg-base-200 font-sans antialiased flex flex-col">
+<div class="relative flex flex-1 flex-col items-center justify-center pt-6 sm:pt-0">
 	<div class="absolute top-4 right-4">
 		<label class="swap swap-rotate btn btn-ghost btn-circle">
 			{{-- MODIFIED: Added 'hidden' class to prevent the checkbox from being visible --}}
@@ -48,6 +48,7 @@
 		@yield('content')
 	</div>
 </div>
+@include('partials.site-footer')
 <script>
 	document.addEventListener('DOMContentLoaded', function () {
 		const themeController = document.getElementById('theme-controller');

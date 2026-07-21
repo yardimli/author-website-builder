@@ -27,14 +27,17 @@
 </head>
 <body class="font-sans antialiased">
 {{-- MODIFIED: Removed drawer layout for a simpler top-nav layout --}}
-<div class="min-h-screen bg-base-200">
+<div class="min-h-screen bg-base-200 flex flex-col">
 	@include('layouts.navigation')
 	
 	<!-- Page Content -->
-	<main>
+	<main class="flex-1">
 		{{-- The @yield directive specifies where content from a child page will be injected. --}}
 		@yield('content')
 	</main>
+	@unless(request()->routeIs('websites.show', 'website.preview.*'))
+		@include('partials.site-footer')
+	@endunless
 </div>
 @stack('scripts')
 {{-- ADDED: Script to manage theme controller state persistence --}}

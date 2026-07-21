@@ -65,7 +65,7 @@
         <section class="border-t border-black/10 px-5 py-24 text-center lg:px-8"><p class="text-xs font-bold uppercase tracking-[.22em] text-[#8f3155]">The next chapter needs a URL</p><h2 class="display mx-auto mt-4 max-w-4xl text-5xl leading-tight sm:text-7xl">Build the place readers find after the final page.</h2><a href="{{ route('register') }}" class="btn btn-neutral btn-lg mt-9">Start with three examples</a></section>
     </main>
 
-    <footer class="mx-auto flex max-w-7xl flex-col gap-3 border-t border-black/10 px-5 py-8 text-sm text-[#766d66] sm:flex-row sm:items-center sm:justify-between lg:px-8"><span>{{ config('app.name', 'Author Website Builder') }}</span><span>Author sites shaped in conversation.</span></footer>
+    @include('partials.site-footer')
 </div>
 </body>
 </html>
