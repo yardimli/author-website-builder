@@ -91,13 +91,15 @@ class AuthorWebsiteExperienceTest extends TestCase
             ->assertSee('Start here')
             ->assertSee('Demo: The Rain of Memories')
             ->assertSee('Demo: The Midnight Enigma')
-            ->assertSee('Demo: The Whisper Sword');
+            ->assertSee('Demo: The Whisper Sword')
+            ->assertSee('site-thumbnail.png')
+            ->assertDontSee('<iframe', false);
 
         $this->actingAs($user)->get('/dashboard')->assertOk();
 
         $this->assertDatabaseCount('websites', 3);
         $this->assertDatabaseCount('website_files', 9);
-        $this->assertSame(9, WebsiteFile::where('content', 'like', '%demo-template:2%')->count());
+        $this->assertSame(9, WebsiteFile::where('content', 'like', '%demo-template:3%')->count());
         $this->assertTrue(WebsiteFile::all()->every(fn (WebsiteFile $file) => mb_check_encoding($file->content, 'UTF-8')));
         $this->assertSame(3, Website::where('user_id', $user->id)->where('is_demo', true)->count());
     }
@@ -139,8 +141,8 @@ class AuthorWebsiteExperienceTest extends TestCase
         $this->assertNotFalse($archive->locateName('js/script.js'));
         $this->assertNotFalse($archive->locateName('assets/cover.jpg'));
         $this->assertNotFalse($archive->locateName('assets/author.jpg'));
-        $this->assertNotFalse($archive->locateName('assets/book-3d.jpg'));
-        $this->assertNotFalse($archive->locateName('assets/tablet.jpg'));
+        $this->assertNotFalse($archive->locateName('assets/book-3d.png'));
+        $this->assertNotFalse($archive->locateName('assets/tablet.png'));
         $this->assertNotFalse($archive->locateName('assets/social.jpg'));
         $archive->close();
     }

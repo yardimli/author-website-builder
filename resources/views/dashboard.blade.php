@@ -66,7 +66,7 @@
                         <dialog id="slug_modal_{{ $website->id }}" class="modal">
                             <div class="modal-box">
                                 <h3 class="text-lg font-bold">Website settings</h3>
-                                <p class="py-2 text-sm text-base-content/70">Change the public URL for “{{ $website->name }}”.</p>
+                                <p class="py-2 text-sm text-base-content/70">Change the public URL for ï¿½{{ $website->name }}ï¿½.</p>
                                 <form method="POST" action="{{ route('websites.slug.update', $website) }}" class="slug-update-form space-y-4 pt-4" data-website-id="{{ $website->id }}">
                                     @csrf
                                     @method('PATCH')
@@ -104,8 +104,8 @@
                         ][$website->demo_key] ?? 'An editable author website example.';
                     @endphp
                     <article class="group overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
-                        <div class="relative aspect-[16/10] overflow-hidden bg-base-200">
-                            <iframe src="{{ route('website.preview.serve', $website) }}" title="{{ $genre }} author website preview" class="pointer-events-none h-[160%] w-[160%] origin-top-left scale-[.625] border-0 bg-white" loading="lazy"></iframe>
+                        <div class="relative aspect-[5/3] overflow-hidden bg-base-200">
+                            <img src="{{ asset('images/demo-sites/'.$website->demo_key.'/site-thumbnail.png') }}" alt="Zoomed-out desktop preview of the {{ $genre }} author website" class="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.02]" loading="lazy">
                             <div class="absolute left-4 top-4 badge badge-primary">{{ $genre }} demo</div>
                         </div>
                         <div class="p-5">

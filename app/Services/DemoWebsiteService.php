@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Log;
 
 class DemoWebsiteService
 {
-    private const TEMPLATE_MARKER = 'demo-template:2';
+    private const TEMPLATE_MARKER = 'demo-template:3';
 
     public function ensureForUser(User $user): void
     {
@@ -189,7 +189,7 @@ class DemoWebsiteService
         $genreLabel = ucfirst($genre);
 
         $html = <<<HTML
-<!-- demo-template:2 -->
+<!-- demo-template:3 -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -213,7 +213,7 @@ class DemoWebsiteService
                 <p class="hook">{$hook}</p>
                 <div class="hero-actions"><a class="button" href="#story">Explore the story</a><a class="text-link" href="#newsletter">Join the readers list</a></div>
             </div>
-            <img class="book-3d" src="{$assetRoot}/book-3d.jpg" alt="3D book presentation of {$title}">
+            <img class="book-3d" src="{$assetRoot}/book-3d.png" alt="3D book presentation of {$title}">
         </section>
 
         <section class="story" id="story">
@@ -225,7 +225,7 @@ class DemoWebsiteService
 
         <section class="author" id="author">
             <img src="{$assetRoot}/author.jpg" alt="Portrait of {$author}">
-            <div><p class="eyebrow">About the author</p><h2>{$author}</h2><p>{$bioOne}</p><p>{$bioTwo}</p><img class="tablet-book" src="{$assetRoot}/tablet.jpg" alt="Tablet presentation of {$title}"></div>
+            <div><p class="eyebrow">About the author</p><h2>{$author}</h2><p>{$bioOne}</p><p>{$bioTwo}</p><img class="tablet-book" src="{$assetRoot}/tablet.png" alt="Tablet presentation of {$title}"></div>
         </section>
 
         <section class="newsletter" id="newsletter"><div><p class="eyebrow">From the writing desk</p><h2>New releases and notes for readers.</h2></div><button type="button" id="subscribe">Join the newsletter</button></section>
@@ -237,7 +237,7 @@ class DemoWebsiteService
 HTML;
 
         $css = <<<CSS
-/* demo-template:2 */
+/* demo-template:3 */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap');
 :root{--accent:{$accent};--bg:{$background};--text:{$text};--card:color-mix(in srgb,var(--bg) 90%,white)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;line-height:1.7}.site-header{max-width:1180px;margin:auto;padding:24px 28px;display:flex;align-items:center;justify-content:space-between}.brand,h1,h2{font-family:'Playfair Display',serif}.brand{color:var(--text);font-size:1.35rem;font-weight:700;text-decoration:none}.site-header nav{display:flex;gap:26px}.site-header nav a,.text-link{color:var(--text);font-size:.88rem;text-decoration:none}.menu-toggle{display:none}.hero{max-width:1180px;min-height:72vh;margin:auto;padding:54px 28px 84px;display:grid;grid-template-columns:1.25fr .75fr;align-items:center;gap:58px}.eyebrow{color:var(--accent);font-size:.74rem;font-weight:700;letter-spacing:.19em;text-transform:uppercase}.hero h1{font-size:clamp(3.4rem,7vw,7rem);line-height:.94;margin:16px 0 28px;max-width:760px}.hook{font-size:1.15rem;max-width:650px;opacity:.82}.hero-actions{display:flex;align-items:center;gap:24px;margin-top:28px}.button,#subscribe{display:inline-block;padding:14px 20px;border:1px solid var(--accent);background:var(--accent);color:white;text-decoration:none;font:600 .88rem 'DM Sans',sans-serif;cursor:pointer}.book-3d{width:min(100%,390px);max-height:520px;object-fit:contain;justify-self:center;filter:drop-shadow(0 30px 35px rgba(0,0,0,.3))}.story,.author,.newsletter{max-width:1124px;margin:0 auto 54px;padding:72px;background:var(--card);border:1px solid color-mix(in srgb,var(--text) 13%,transparent)}.story{display:grid;grid-template-columns:280px 1fr;gap:72px;align-items:center}.front-cover{width:100%;box-shadow:0 22px 45px rgba(0,0,0,.24)}.story h2,.author h2,.newsletter h2,.world-banner h2{font-size:clamp(2.2rem,4.5vw,4rem);line-height:1.05;margin:12px 0 24px}.story blockquote{margin:28px 0 0;padding-left:22px;border-left:3px solid var(--accent);font:600 1.2rem 'Playfair Display',serif}.world-banner{min-height:420px;margin:0 0 54px;background-size:cover;background-position:center;display:flex;align-items:end;color:white}.world-banner>div{width:1124px;max-width:100%;margin:auto;padding:80px 72px}.world-banner h2{max-width:760px}.author{display:grid;grid-template-columns:minmax(240px,360px) 1fr;gap:70px;align-items:center}.author>img{width:100%;aspect-ratio:1;object-fit:cover}.author p{max-width:670px}.tablet-book{width:170px;max-height:220px;object-fit:contain;float:right;margin:-16px 0 0 24px}.newsletter{display:flex;align-items:end;justify-content:space-between;gap:36px}.newsletter h2{max-width:700px}footer{padding:36px 28px;text-align:center;font-size:.8rem;opacity:.65}@media(max-width:720px){.site-header nav{display:none}.menu-toggle{display:block;border:0;background:transparent;color:var(--text)}.hero{grid-template-columns:1fr;padding-top:28px;gap:34px}.hero h1{font-size:3.45rem}.book-3d{grid-row:1;width:230px;height:310px}.hero-actions{align-items:flex-start;flex-direction:column;gap:14px}.story,.author{grid-template-columns:1fr;gap:36px}.story,.author,.newsletter{margin:0 18px 30px;padding:38px 28px}.front-cover{width:210px;justify-self:center}.world-banner{min-height:360px}.world-banner>div{padding:48px 28px}.newsletter{display:block}.tablet-book{display:none}}
@@ -246,7 +246,7 @@ CSS;
         return [
             ['folder' => '/', 'filename' => 'index.html', 'filetype' => 'html', 'content' => $html],
             ['folder' => '/css', 'filename' => 'style.css', 'filetype' => 'css', 'content' => $css],
-            ['folder' => '/js', 'filename' => 'script.js', 'filetype' => 'js', 'content' => "// demo-template:2\ndocument.getElementById('year').textContent = new Date().getFullYear();\ndocument.getElementById('subscribe').addEventListener('click', () => alert('Demo newsletter signup'));"],
+            ['folder' => '/js', 'filename' => 'script.js', 'filetype' => 'js', 'content' => "// demo-template:3\ndocument.getElementById('year').textContent = new Date().getFullYear();\ndocument.getElementById('subscribe').addEventListener('click', () => alert('Demo newsletter signup'));"],
         ];
     }
 }
