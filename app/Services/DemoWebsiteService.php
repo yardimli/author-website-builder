@@ -112,6 +112,20 @@ class DemoWebsiteService
 
         return ((int) $latestVersion) + 1;
     }
+
+    private function uniqueSlug(string $base): string
+    {
+        $slug = $base;
+        $suffix = 1;
+
+        while (Website::where('slug', $slug)->exists()) {
+            $slug = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
     private function definitions(): array
     {
         return [
